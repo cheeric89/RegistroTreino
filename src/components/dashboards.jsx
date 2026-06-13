@@ -15,7 +15,7 @@ export default function Dashboard({ onStart }) {
         <div className="logo-mark">
           <Dumbbell size={22} strokeWidth={2.5} />
         </div>
-        <span className="logo-text">IRONLOG</span>
+        <span className="logo-text">TREINO</span>
       </div>
 
       {/* Hero */}

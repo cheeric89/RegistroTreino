@@ -5,7 +5,7 @@
 //   - Agregar compresión LZ-string para reducir el tamaño guardado.
 //   - Exportar / importar datos como JSON para backup del usuario.
 
-const STORAGE_KEY = "ironlog_workouts";
+const STORAGE_KEY = "treino_workouts";
 
 /** Leer todos los workouts del almacenamiento */
 export function getAllWorkouts() {
