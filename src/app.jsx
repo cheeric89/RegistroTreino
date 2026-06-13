@@ -1,35 +1,61 @@
 // App.jsx — Punto de entrada principal
 // Para extender: aquí puedes integrar React Router si la app crece
-// o añadir un Context Provider global para estado compartido
-
 import { useState } from "react";
-import Dashboard from "./components/dashboards"; // Corregido: dashboards (tu archivo tiene 's')
-import DaySelector from "./components/dayselector"; // Corregido: dayselector (todo en minúsculas)
-import CategorySelector from "./components/categoryselector"; // Corregido: categoryselector (todo en minúsculas)
-import WorkoutForm from "./components/workoutform"; // Corregido: workoutform (todo en minúsculas)
-import WorkoutSummary from "./components/workoutsummary"; // Corregido: workoutsummary (todo en minúsculas)
+import * as DashboardModule from "./components/dashboards";
+const Dashboard = DashboardModule.Dashboard || DashboardModule.default || (() => null);
+import DaySelector from "./components/dayselector"; 
+import TemplateSelector from "./components/templateselector"; 
+import CategorySelector from "./components/categoryselector"; 
+import WorkoutForm from "./components/workoutform"; 
+import WorkoutSummary from "./components/workoutsummary"; 
 
 // Vistas posibles de la app (máquina de estados simple)
 const VIEWS = {
   DASHBOARD: "dashboards",
+  TEMPLATE_SELECTOR: "template_selector", 
   DAY_SELECTOR: "day_selector",
   CATEGORY_SELECTOR: "category_selector",
   WORKOUT_FORM: "workout_form",
   SUMMARY: "summary",
 };
 
+// Función auxiliar para generar la estructura de una serie vacía
+const newSet = () => ({
+  id: Date.now() + Math.random(), 
+  weight: "",
+  reps: "",
+  done: false,
+});
+
 export default function App() {
   const [view, setView] = useState(VIEWS.DASHBOARD);
   const [selectedDay, setSelectedDay] = useState(null);
   const [selectedCategories, setSelectedCategories] = useState([]);
+  const [selectedTemplate, setSelectedTemplate] = useState(null); 
   const [savedWorkout, setSavedWorkout] = useState(null);
 
   // Navegar hacia adelante / atrás sin perder estado
   const navigate = (nextView) => setView(nextView);
 
+  // Handler al dar inicio en el Dashboard
+  const handleStart = () => navigate(VIEWS.TEMPLATE_SELECTOR);
+
+  // Nuevo handler: cuando el usuario elige plantilla
+  const handleTemplateSelected = (template) => {
+    setSelectedTemplate(template);
+    navigate(VIEWS.DAY_SELECTOR); // Salta directo a elegir el día
+  };
+
+  // Modificar handleDaySelected para bifurcar el flujo
   const handleDaySelected = (day) => {
     setSelectedDay(day);
-    navigate(VIEWS.CATEGORY_SELECTOR);
+    if (selectedTemplate && selectedTemplate.id !== "custom") {
+      // Plantilla con ejercicios -> saltar CategorySelector e ir al Formulario
+      navigate(VIEWS.WORKOUT_FORM);
+    } else {
+      // Flujo personalizado -> va a elegir los músculos primero
+      navigate(VIEWS.CATEGORY_SELECTOR);
+    }
   };
 
   const handleCategoriesConfirmed = (cats) => {
@@ -45,6 +71,7 @@ export default function App() {
   const handleReset = () => {
     setSelectedDay(null);
     setSelectedCategories([]);
+    setSelectedTemplate(null);
     setSavedWorkout(null);
     navigate(VIEWS.DASHBOARD);
   };
@@ -52,14 +79,23 @@ export default function App() {
   return (
     <div className="app-root">
       {view === VIEWS.DASHBOARD && (
-        <Dashboard onStart={() => navigate(VIEWS.DAY_SELECTOR)} />
+        <Dashboard onStart={handleStart} />
       )}
-      {view === VIEWS.DAY_SELECTOR && (
-        <DaySelector
-          onSelect={handleDaySelected}
+
+      {view === VIEWS.TEMPLATE_SELECTOR && (
+        <TemplateSelector
+          onSelect={handleTemplateSelected}
           onBack={handleReset}
         />
       )}
+      
+      {view === VIEWS.DAY_SELECTOR && (
+        <DaySelector
+          onSelect={handleDaySelected}
+          onBack={() => navigate(VIEWS.TEMPLATE_SELECTOR)}
+        />
+      )}
+
       {view === VIEWS.CATEGORY_SELECTOR && (
         <CategorySelector
           day={selectedDay}
@@ -67,14 +103,32 @@ export default function App() {
           onBack={() => navigate(VIEWS.DAY_SELECTOR)}
         />
       )}
+
       {view === VIEWS.WORKOUT_FORM && (
         <WorkoutForm
           day={selectedDay}
-          categories={selectedCategories}
+          // Si hay plantilla válida, mapeamos sus categorías internas. Si no, las seleccionadas a mano.
+          categories={
+            selectedTemplate && selectedTemplate.categories
+              ? selectedTemplate.categories.map((c) => c.name)
+              : selectedCategories
+          }
+          templateCategories={
+            selectedTemplate && selectedTemplate.categories 
+              ? selectedTemplate.categories 
+              : null
+          }
           onSave={handleWorkoutSaved}
-          onBack={() => navigate(VIEWS.CATEGORY_SELECTOR)}
+          onBack={() => {
+            if (selectedTemplate && selectedTemplate.id !== "custom") {
+              navigate(VIEWS.DAY_SELECTOR);
+            } else {
+              navigate(VIEWS.CATEGORY_SELECTOR);
+            }
+          }}
         />
       )}
+
       {view === VIEWS.SUMMARY && (
         <WorkoutSummary
           workout={savedWorkout}
