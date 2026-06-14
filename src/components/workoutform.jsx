@@ -1,9 +1,11 @@
 // src/components/workoutform.jsx
-import React, { useState } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { ChevronLeft, Plus, Trash2, CheckCircle2, Check } from "lucide-react";
 import { saveWorkout } from "../utils/storage";
+import { getProgressionHint, getPRStatus } from "../utils/progressionEngine";
+import ExerciseHint, { PRBadge } from "./ExerciseHint";
 
-// Genera una serie vacía con ID único
+// ── Helpers puros ──────────────────────────────────────────
 const newSet = () => ({
   id: Date.now() + Math.random(),
   weight: "",
@@ -11,64 +13,65 @@ const newSet = () => ({
   done: false,
 });
 
-// Inicializa una categoría con sus ejercicios (de plantilla o vacíos)
 const initCategory = (name, presetExercises = null) => ({
   name,
   expanded: true,
   exercises: presetExercises
     ? presetExercises.map((ex) => ({
         name: ex.name || "",
-        sets: ex.sets && ex.sets.length > 0 ? ex.sets.map(() => newSet()) : [newSet()],
+        sets: ex.sets?.length > 0 ? ex.sets.map(() => newSet()) : [newSet()],
       }))
     : [{ name: "Ejercicio 1", sets: [newSet()] }],
 });
 
+// ── Componente ─────────────────────────────────────────────
 export default function WorkoutForm({ day, categories, templateCategories, onSave, onBack }) {
   const [saving, setSaving] = useState(false);
+  // Lista de { exerciseName, status } de los PRs detectados en el guardado
+  const [prResults, setPrResults] = useState([]);
 
-  // Estado inicial: plantilla > categorías manuales > vacío
   const [catData, setCatData] = useState(() => {
-    if (templateCategories && templateCategories.length > 0) {
+    if (templateCategories?.length > 0)
       return templateCategories.map((tc) => initCategory(tc.name, tc.exercises));
-    }
-    if (categories && categories.length > 0) {
+    if (categories?.length > 0)
       return categories.map((name) => initCategory(name));
-    }
     return [];
   });
 
-  // ── Handlers ───────────────────────────────────────────
-  const toggleExpand = (ci) =>
-    setCatData(catData.map((c, i) => (i === ci ? { ...c, expanded: !c.expanded } : c)));
+  // ── Mutadores de estado ────────────────────────────────
+  const toggleExpand = useCallback((ci) =>
+    setCatData((prev) =>
+      prev.map((c, i) => (i === ci ? { ...c, expanded: !c.expanded } : c))
+    ), []);
 
-  const addExercise = (ci) =>
-    setCatData(
-      catData.map((c, i) =>
+  const addExercise = useCallback((ci) =>
+    setCatData((prev) =>
+      prev.map((c, i) =>
         i === ci
-          ? { ...c, exercises: [...c.exercises, { name: `Ejercicio ${c.exercises.length + 1}`, sets: [newSet()] }] }
+          ? { ...c, exercises: [...c.exercises, { name: "", sets: [newSet()] }] }
           : c
       )
-    );
+    ), []);
 
-  const removeExercise = (ci, ei) =>
-    setCatData(
-      catData.map((c, i) =>
+  const removeExercise = useCallback((ci, ei) =>
+    setCatData((prev) =>
+      prev.map((c, i) =>
         i === ci ? { ...c, exercises: c.exercises.filter((_, j) => j !== ei) } : c
       )
-    );
+    ), []);
 
-  const setExName = (ci, ei, val) =>
-    setCatData(
-      catData.map((c, i) =>
+  const setExName = useCallback((ci, ei, val) =>
+    setCatData((prev) =>
+      prev.map((c, i) =>
         i === ci
           ? { ...c, exercises: c.exercises.map((ex, j) => (j === ei ? { ...ex, name: val } : ex)) }
           : c
       )
-    );
+    ), []);
 
-  const addSet = (ci, ei) =>
-    setCatData(
-      catData.map((c, i) =>
+  const addSet = useCallback((ci, ei) =>
+    setCatData((prev) =>
+      prev.map((c, i) =>
         i === ci
           ? {
               ...c,
@@ -78,25 +81,11 @@ export default function WorkoutForm({ day, categories, templateCategories, onSav
             }
           : c
       )
-    );
+    ), []);
 
-  const removeSet = (ci, ei, si) =>
-    setCatData(
-      catData.map((c, i) =>
-        i === ci
-          ? {
-              ...c,
-              exercises: c.exercises.map((ex, j) =>
-                j === ei ? { ...ex, sets: ex.sets.filter((_, k) => k !== si) } : ex
-              ),
-            }
-          : c
-      )
-    );
-
-  const updateSet = (ci, ei, si, field, val) =>
-    setCatData(
-      catData.map((c, i) =>
+  const updateSet = useCallback((ci, ei, si, field, val) =>
+    setCatData((prev) =>
+      prev.map((c, i) =>
         i === ci
           ? {
               ...c,
@@ -108,11 +97,11 @@ export default function WorkoutForm({ day, categories, templateCategories, onSav
             }
           : c
       )
-    );
+    ), []);
 
-  const toggleDone = (ci, ei, si) =>
-    setCatData(
-      catData.map((c, i) =>
+  const toggleDone = useCallback((ci, ei, si) =>
+    setCatData((prev) =>
+      prev.map((c, i) =>
         i === ci
           ? {
               ...c,
@@ -124,32 +113,55 @@ export default function WorkoutForm({ day, categories, templateCategories, onSav
             }
           : c
       )
-    );
+    ), []);
 
-  // ── Guardar ────────────────────────────────────────────
-  // CRÍTICO: el objeto guardado usa la clave "exercises" para que WorkoutSummary pueda leerlo
-  const handleSave = (e) => {
+  // ── Hints: se calculan ANTES de guardar, mientras el usuario edita ──
+  // useMemo para no recalcular en cada keystroke de otros campos
+  const hints = useMemo(() => {
+    const map = {};
+    for (const cat of catData) {
+      for (const ex of cat.exercises ?? []) {
+        if (ex.name && !map[ex.name]) {
+          map[ex.name] = getProgressionHint(ex.name);
+        }
+      }
+    }
+    return map;
+  }, [catData.flatMap((c) => c.exercises.map((e) => e.name)).join("|")]);
+
+  // ── Guardar con detección de PR ───────────────────────
+  const handleSave = useCallback((e) => {
     e?.preventDefault();
     if (saving) return;
     setSaving(true);
+
+    // Detectar PRs ANTES de guardar (getLastSession lee historial previo)
+    const detected = [];
+    for (const cat of catData) {
+      for (const ex of cat.exercises ?? []) {
+        if (!ex.name?.trim()) continue;
+        const status = getPRStatus(ex.name, ex.sets ?? []);
+        if (status.isPR) detected.push({ exerciseName: ex.name, status });
+      }
+    }
+    setPrResults(detected);
 
     const workout = {
       day: day || "Entrenamiento",
       date: new Date().toLocaleDateString("es-CL"),
       timestamp: Date.now(),
-      // WorkoutSummary espera workout.exercises (array de categorías)
-      exercises: catData,
-      // También guardamos categories (array de strings) para el dashboard
-      categories: catData.map((c) => c.name),
+      exercises: catData,                      // WorkoutSummary lo usa
+      categories: catData.map((c) => c.name), // Dashboard lo usa
     };
 
     saveWorkout(workout);
 
+    // Breve pausa para mostrar feedback antes de navegar
     setTimeout(() => {
       setSaving(false);
       onSave(workout);
-    }, 300);
-  };
+    }, detected.length > 0 ? 2200 : 350);
+  }, [saving, catData, day, onSave]);
 
   // ── Render ─────────────────────────────────────────────
   return (
@@ -173,6 +185,19 @@ export default function WorkoutForm({ day, categories, templateCategories, onSav
         </button>
       </div>
 
+      {/* Overlay de PRs — aparece encima del contenido al guardar */}
+      {prResults.length > 0 && (
+        <div className="pr-overlay" aria-live="assertive">
+          <div className="pr-overlay-inner">
+            <p className="pr-overlay-title">🏆 ¡Sesión épica!</p>
+            <p className="pr-overlay-sub">Superaste tu marca en:</p>
+            {prResults.map(({ exerciseName, status }, i) => (
+              <PRBadge key={i} exerciseName={exerciseName} status={status} />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Cuerpo scrollable */}
       <div className="form-scroll" style={{ paddingTop: 12 }}>
         {catData.map((cat, ci) => (
@@ -191,12 +216,11 @@ export default function WorkoutForm({ day, categories, templateCategories, onSav
               <span className="wf-chevron">{cat.expanded ? "▾" : "▸"}</span>
             </button>
 
-            {/* Ejercicios de la categoría */}
             {cat.expanded && (
               <div className="wf-exercises">
                 {cat.exercises.map((ex, ei) => (
                   <div key={ei} className="wf-ex-card">
-                    {/* Nombre del ejercicio */}
+                    {/* Nombre */}
                     <div className="wf-ex-name-row">
                       <input
                         type="text"
@@ -216,6 +240,9 @@ export default function WorkoutForm({ day, categories, templateCategories, onSav
                       </button>
                     </div>
 
+                    {/* ── Hint de progresión ── */}
+                    <ExerciseHint hint={hints[ex.name]} />
+
                     {/* Cabecera de columnas */}
                     <div className="wf-sets-header">
                       <span className="wf-col-num">#</span>
@@ -224,7 +251,7 @@ export default function WorkoutForm({ day, categories, templateCategories, onSav
                       <span className="wf-col-label" style={{ textAlign: "center" }}>✓</span>
                     </div>
 
-                    {/* Filas de series */}
+                    {/* Series */}
                     {ex.sets.map((set, si) => (
                       <div
                         key={set.id}
@@ -251,14 +278,13 @@ export default function WorkoutForm({ day, categories, templateCategories, onSav
                           type="button"
                           className={`wf-done-btn ${set.done ? "wf-done-btn--active" : ""}`}
                           onClick={() => toggleDone(ci, ei, si)}
-                          aria-label={set.done ? "Desmarcar" : "Marcar como hecha"}
+                          aria-label={set.done ? "Desmarcar" : "Marcar serie"}
                         >
                           <Check size={13} strokeWidth={3} />
                         </button>
                       </div>
                     ))}
 
-                    {/* Añadir serie */}
                     <button
                       type="button"
                       className="wf-add-set-btn"
@@ -270,7 +296,6 @@ export default function WorkoutForm({ day, categories, templateCategories, onSav
                   </div>
                 ))}
 
-                {/* Añadir ejercicio */}
                 <button
                   type="button"
                   className="wf-add-ex-btn"
@@ -285,23 +310,19 @@ export default function WorkoutForm({ day, categories, templateCategories, onSav
         ))}
       </div>
 
-      {/* Footer con botón principal */}
+      {/* Footer */}
       <div className="sticky-footer">
         <button
           type="button"
           className={`cta-button ${saving ? "cta-button--saving" : ""}`}
           onClick={handleSave}
         >
-          {saving ? (
-            <>
-              <Check size={18} strokeWidth={3} />
-              Guardando…
-            </>
+          {saving && prResults.length > 0 ? (
+            <>🔥 ¡PR detectado! Guardando…</>
+          ) : saving ? (
+            <><Check size={18} strokeWidth={3} /> Guardando…</>
           ) : (
-            <>
-              <CheckCircle2 size={18} />
-              Guardar entrenamiento
-            </>
+            <><CheckCircle2 size={18} /> Guardar entrenamiento</>
           )}
         </button>
       </div>
