@@ -433,7 +433,265 @@ input, button, textarea { font-family: inherit; }
   color: var(--text-1);
 }
 
-/* ── Workout form ────────────────────────────────────────── */
+/* ── Workout form (NUEVO SISTEMA) ────────────────────────── */
+
+/* Botón de guardar en topbar */
+.wf-save-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--primary-glow);
+  border: 1px solid var(--primary);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.wf-save-btn:hover {
+  background: var(--primary);
+  color: white;
+  box-shadow: 0 0 16px var(--primary-glow);
+}
+.wf-save-btn--done {
+  background: var(--success-dim);
+  border-color: var(--success);
+  color: var(--success);
+}
+
+/* Bloque de categoría */
+.wf-cat-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+
+.wf-cat-header {
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text-1);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s;
+}
+.wf-cat-header:hover { background: var(--surface-2); }
+
+.wf-cat-title {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+.wf-cat-count {
+  font-size: 12px;
+  color: var(--text-3);
+  font-weight: 500;
+}
+.wf-chevron {
+  font-size: 14px;
+  color: var(--text-3);
+  margin-left: 4px;
+}
+
+/* Área de ejercicios */
+.wf-exercises {
+  padding: 8px 12px 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Tarjeta de ejercicio */
+.wf-ex-card {
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px 10px;
+}
+
+.wf-ex-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.wf-ex-name-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px solid var(--border);
+  color: var(--text-1);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 4px 2px 6px;
+  transition: border-color 0.15s;
+}
+.wf-ex-name-input:focus {
+  outline: none;
+  border-bottom-color: var(--primary);
+}
+.wf-ex-name-input::placeholder { color: var(--text-3); }
+
+/* Cabecera de columnas */
+.wf-sets-header {
+  display: grid;
+  grid-template-columns: 24px 1fr 1fr 36px;
+  gap: 8px;
+  margin-bottom: 6px;
+  padding: 0 2px;
+}
+.wf-col-num {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+.wf-col-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+/* Fila de serie */
+.wf-set-row {
+  display: grid;
+  grid-template-columns: 24px 1fr 1fr 36px;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 6px 4px;
+  border-radius: var(--radius-sm);
+  transition: background 0.12s;
+}
+.wf-set-row--done {
+  background: #10B98114;
+}
+
+.wf-set-num {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  text-align: center;
+}
+
+/* Inputs de peso / reps */
+.wf-set-input {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-1);
+  padding: 9px 4px;
+  font-size: 17px;
+  font-weight: 700;
+  text-align: center;
+  width: 100%;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.wf-set-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+.wf-set-input::placeholder {
+  color: var(--text-3);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+/* Botón ✓ de serie */
+.wf-done-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.wf-done-btn:hover {
+  border-color: var(--success);
+  color: var(--success);
+  background: var(--success-dim);
+}
+.wf-done-btn--active {
+  background: var(--success);
+  border-color: var(--success);
+  color: white;
+  box-shadow: 0 0 12px #10B98140;
+}
+
+/* Botón añadir serie */
+.wf-add-set-btn {
+  width: 100%;
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-3);
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: all 0.15s;
+  margin-top: 2px;
+}
+.wf-add-set-btn:hover {
+  border-color: var(--primary);
+  color: var(--accent);
+  background: var(--primary-glow);
+}
+
+/* Botón añadir ejercicio */
+.wf-add-ex-btn {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-2);
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: all 0.15s;
+  margin-top: 4px;
+}
+.wf-add-ex-btn:hover {
+  border-color: var(--primary);
+  color: var(--accent);
+  background: var(--primary-glow);
+}
+
+/* ── Legacy section-block (para compatibilidad) ──────────── */
 .section-block {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -481,156 +739,7 @@ input, button, textarea { font-family: inherit; }
 }
 .cat-dot--sm { width: 6px; height: 6px; }
 
-/* Calentamiento */
-.warmup-block .section-header { border-bottom: 1px solid var(--border); }
-.warmup-fields {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  padding: 14px 16px;
-}
-.field-group { display: flex; flex-direction: column; gap: 6px; }
-.field-label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-3);
-}
-.field-input {
-  background: var(--surface-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-1);
-  padding: 10px 12px;
-  font-size: 20px;
-  font-weight: 700;
-  text-align: center;
-  width: 100%;
-  transition: border-color 0.15s;
-}
-.field-input:focus {
-  outline: none;
-  border-color: var(--primary);
-}
-.field-input::placeholder { color: var(--text-3); }
-
-/* Ejercicios */
-.exercises-list {
-  padding: 8px 12px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  border-top: 1px solid var(--border);
-}
-
-.exercise-card {
-  background: var(--surface-3);
-  border-radius: var(--radius-md);
-  padding: 12px;
-}
-
-.exercise-name-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-.exercise-name-input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-1);
-  font-size: 14px;
-  font-weight: 600;
-  padding: 4px 0;
-  transition: border-color 0.15s;
-}
-.exercise-name-input:focus {
-  outline: none;
-  border-bottom-color: var(--primary);
-}
-
-/* Cabecera de columnas de series */
-.sets-header {
-  display: grid;
-  grid-template-columns: 28px 1fr 1fr 28px;
-  gap: 6px;
-  margin-bottom: 6px;
-}
-.col-serie, .col-reps, .col-weight {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-3);
-  text-align: center;
-}
-.col-del {}
-
-/* Fila de serie */
-.set-row {
-  display: grid;
-  grid-template-columns: 28px 1fr 1fr 28px;
-  gap: 6px;
-  align-items: center;
-  margin-bottom: 6px;
-}
-.set-num {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--accent);
-  text-align: center;
-}
-.set-input {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-1);
-  padding: 8px 4px;
-  font-size: 18px;
-  font-weight: 700;
-  text-align: center;
-  width: 100%;
-  transition: border-color 0.15s;
-}
-.set-input:focus {
-  outline: none;
-  border-color: var(--primary);
-}
-.set-input::placeholder { color: var(--text-3); font-size: 16px; }
-
-/* Botones de agregar */
-.add-set-btn, .add-exercise-btn {
-  background: transparent;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-3);
-  padding: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: 100%;
-  transition: all 0.15s;
-  margin-top: 4px;
-}
-.add-set-btn:hover { border-color: var(--primary); color: var(--accent); }
-
-.add-exercise-btn {
-  margin-top: 4px;
-  border-style: dashed;
-  border-color: var(--border);
-  padding: 10px;
-  font-size: 13px;
-}
-.add-exercise-btn:hover { border-color: var(--primary); color: var(--accent); }
-
-/* Icon buttons */
+/* ── Icon buttons ────────────────────────────────────────── */
 .icon-btn {
   width: 28px; height: 28px;
   border-radius: 6px;
@@ -783,6 +892,7 @@ input, button, textarea { font-family: inherit; }
   border-radius: 20px;
   color: var(--accent);
   border: 1px solid var(--border);
+  transition: border-color 0.12s, color 0.12s;
 }
 
 /* ── Scrollbar custom ────────────────────────────────────── */

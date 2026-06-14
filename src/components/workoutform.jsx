@@ -1,8 +1,9 @@
 // src/components/workoutform.jsx
 import React, { useState } from "react";
-import { ChevronLeft, Plus, Trash2, CheckCircle } from "lucide-react";
+import { ChevronLeft, Plus, Trash2, CheckCircle2, Check } from "lucide-react";
+import { saveWorkout } from "../utils/storage";
 
-// Función auxiliar para generar la estructura de una serie vacía
+// Genera una serie vacía con ID único
 const newSet = () => ({
   id: Date.now() + Math.random(),
   weight: "",
@@ -10,238 +11,299 @@ const newSet = () => ({
   done: false,
 });
 
-// Función para inicializar una categoría (músculo) con o sin ejercicios predefinidos
+// Inicializa una categoría con sus ejercicios (de plantilla o vacíos)
 const initCategory = (name, presetExercises = null) => ({
   name,
   expanded: true,
   exercises: presetExercises
     ? presetExercises.map((ex) => ({
-        name: ex.name,
-        sets: ex.sets ? ex.sets.map(() => newSet()) : [newSet()],
+        name: ex.name || "",
+        sets: ex.sets && ex.sets.length > 0 ? ex.sets.map(() => newSet()) : [newSet()],
       }))
     : [{ name: "Ejercicio 1", sets: [newSet()] }],
 });
 
 export default function WorkoutForm({ day, categories, templateCategories, onSave, onBack }) {
-  // Estado inicial inteligente: usa la plantilla si existe, si no, las categorías manuales
+  const [saving, setSaving] = useState(false);
+
+  // Estado inicial: plantilla > categorías manuales > vacío
   const [catData, setCatData] = useState(() => {
     if (templateCategories && templateCategories.length > 0) {
       return templateCategories.map((tc) => initCategory(tc.name, tc.exercises));
     }
-    return categories ? categories.map((name) => initCategory(name)) : [];
+    if (categories && categories.length > 0) {
+      return categories.map((name) => initCategory(name));
+    }
+    return [];
   });
 
-  // Métodos de interacción de la interfaz
-  const toggleExpand = (index) => {
-    setCatData(
-      catData.map((cat, i) => (i === index ? { ...cat, expanded: !cat.expanded } : cat))
-    );
-  };
+  // ── Handlers ───────────────────────────────────────────
+  const toggleExpand = (ci) =>
+    setCatData(catData.map((c, i) => (i === ci ? { ...c, expanded: !c.expanded } : c)));
 
-  const addExercise = (catIndex) => {
+  const addExercise = (ci) =>
     setCatData(
-      catData.map((cat, i) =>
-        i === catIndex
-          ? {
-              ...cat,
-              exercises: [...cat.exercises, { name: `Ejercicio ${cat.exercises.length + 1}`, sets: [newSet()] }],
-            }
-          : cat
+      catData.map((c, i) =>
+        i === ci
+          ? { ...c, exercises: [...c.exercises, { name: `Ejercicio ${c.exercises.length + 1}`, sets: [newSet()] }] }
+          : c
       )
     );
-  };
 
-  const removeExercise = (catIndex, exIndex) => {
+  const removeExercise = (ci, ei) =>
     setCatData(
-      catData.map((cat, i) =>
-        i === catIndex
-          ? {
-              ...cat,
-              exercises: cat.exercises.filter((_, j) => j !== exIndex),
-            }
-          : cat
+      catData.map((c, i) =>
+        i === ci ? { ...c, exercises: c.exercises.filter((_, j) => j !== ei) } : c
       )
     );
-  };
 
-  const handleExerciseNameChange = (catIndex, exIndex, value) => {
+  const setExName = (ci, ei, val) =>
     setCatData(
-      catData.map((cat, i) =>
-        i === catIndex
-          ? {
-              ...cat,
-              exercises: cat.exercises.map((ex, j) => (j === exIndex ? { ...ex, name: value } : ex)),
-            }
-          : cat
+      catData.map((c, i) =>
+        i === ci
+          ? { ...c, exercises: c.exercises.map((ex, j) => (j === ei ? { ...ex, name: val } : ex)) }
+          : c
       )
     );
-  };
 
-  const addSet = (catIndex, exIndex) => {
+  const addSet = (ci, ei) =>
     setCatData(
-      catData.map((cat, i) =>
-        i === catIndex
+      catData.map((c, i) =>
+        i === ci
           ? {
-              ...cat,
-              exercises: cat.exercises.map((ex, j) =>
-                j === exIndex ? { ...ex, sets: [...ex.sets, newSet()] } : ex
+              ...c,
+              exercises: c.exercises.map((ex, j) =>
+                j === ei ? { ...ex, sets: [...ex.sets, newSet()] } : ex
               ),
             }
-          : cat
+          : c
       )
     );
-  };
 
-  const updateSet = (catIndex, exIndex, setIndex, field, value) => {
+  const removeSet = (ci, ei, si) =>
     setCatData(
-      catData.map((cat, i) =>
-        i === catIndex
+      catData.map((c, i) =>
+        i === ci
           ? {
-              ...cat,
-              exercises: cat.exercises.map((ex, j) =>
-                j === exIndex
-                  ? {
-                      ...ex,
-                      sets: ex.sets.map((s, k) => (k === setIndex ? { ...s, [field]: value } : s)),
-                    }
+              ...c,
+              exercises: c.exercises.map((ex, j) =>
+                j === ei ? { ...ex, sets: ex.sets.filter((_, k) => k !== si) } : ex
+              ),
+            }
+          : c
+      )
+    );
+
+  const updateSet = (ci, ei, si, field, val) =>
+    setCatData(
+      catData.map((c, i) =>
+        i === ci
+          ? {
+              ...c,
+              exercises: c.exercises.map((ex, j) =>
+                j === ei
+                  ? { ...ex, sets: ex.sets.map((s, k) => (k === si ? { ...s, [field]: val } : s)) }
                   : ex
               ),
             }
-          : cat
+          : c
       )
     );
-  };
 
-  const toggleSetDone = (catIndex, exIndex, setIndex) => {
+  const toggleDone = (ci, ei, si) =>
     setCatData(
-      catData.map((cat, i) =>
-        i === catIndex
+      catData.map((c, i) =>
+        i === ci
           ? {
-              ...cat,
-              exercises: cat.exercises.map((ex, j) =>
-                j === exIndex
-                  ? {
-                      ...ex,
-                      sets: ex.sets.map((s, k) => (k === setIndex ? { ...s, done: !s.done } : s)),
-                    }
+              ...c,
+              exercises: c.exercises.map((ex, j) =>
+                j === ei
+                  ? { ...ex, sets: ex.sets.map((s, k) => (k === si ? { ...s, done: !s.done } : s)) }
                   : ex
               ),
             }
-          : cat
+          : c
       )
     );
+
+  // ── Guardar ────────────────────────────────────────────
+  // CRÍTICO: el objeto guardado usa la clave "exercises" para que WorkoutSummary pueda leerlo
+  const handleSave = (e) => {
+    e?.preventDefault();
+    if (saving) return;
+    setSaving(true);
+
+    const workout = {
+      day: day || "Entrenamiento",
+      date: new Date().toLocaleDateString("es-CL"),
+      timestamp: Date.now(),
+      // WorkoutSummary espera workout.exercises (array de categorías)
+      exercises: catData,
+      // También guardamos categories (array de strings) para el dashboard
+      categories: catData.map((c) => c.name),
+    };
+
+    saveWorkout(workout);
+
+    setTimeout(() => {
+      setSaving(false);
+      onSave(workout);
+    }, 300);
   };
 
-  const handleFinalSave = () => {
-    onSave({
-      day,
-      date: new Date().toLocaleDateString(),
-      categories: catData,
-    });
-  };
-
+  // ── Render ─────────────────────────────────────────────
   return (
     <div className="screen">
+      {/* Topbar */}
       <div className="topbar">
-        <button className="back-btn" onClick={onBack}>
+        <button type="button" className="back-btn" onClick={onBack}>
           <ChevronLeft size={20} />
         </button>
         <div className="topbar-title">
           <span className="step-label">{day || "Entrenamiento"}</span>
           <h2>Registrar Series</h2>
         </div>
-        <button className="save-btn" onClick={handleFinalSave}>
-          <CheckCircle size={20} color="var(--primary)" />
+        <button
+          type="button"
+          className={`wf-save-btn ${saving ? "wf-save-btn--done" : ""}`}
+          onClick={handleSave}
+          aria-label="Guardar entrenamiento"
+        >
+          <CheckCircle2 size={22} />
         </button>
       </div>
 
-      <div className="workout-container" style={{ padding: "16px", paddingBottom: "80px" }}>
-        {catData.map((cat, catIdx) => (
-          <div key={catIdx} className="category-section" style={{ marginBottom: "20px" }}>
-            <div 
-              className="category-header" 
-              onClick={() => toggleExpand(catIdx)}
-              style={{ display: "flex", justifyContent: "between", alignItems: "center", cursor: "pointer", background: "rgba(255,255,255,0.05)", padding: "10px", borderRadius: "8px" }}
+      {/* Cuerpo scrollable */}
+      <div className="form-scroll" style={{ paddingTop: 12 }}>
+        {catData.map((cat, ci) => (
+          <div key={ci} className="wf-cat-block">
+            {/* Cabecera de categoría */}
+            <button
+              type="button"
+              className="wf-cat-header"
+              onClick={() => toggleExpand(ci)}
             >
-              <h3 style={{ margin: 0, flex: 1 }}>{cat.name}</h3>
-              <span style={{ fontSize: "12px", color: "var(--text-3)" }}>
-                {cat.expanded ? "Ocultar" : "Mostrar"}
+              <span className="cat-dot" style={{ marginRight: 4 }} />
+              <span className="wf-cat-title">{cat.name}</span>
+              <span className="wf-cat-count">
+                {cat.exercises.length} ejercicio{cat.exercises.length !== 1 ? "s" : ""}
               </span>
-            </div>
+              <span className="wf-chevron">{cat.expanded ? "▾" : "▸"}</span>
+            </button>
 
+            {/* Ejercicios de la categoría */}
             {cat.expanded && (
-              <div className="category-content" style={{ marginTop: "10px" }}>
-                {cat.exercises.map((ex, exIdx) => (
-                  <div key={exIdx} className="exercise-card" style={{ background: "rgba(255,255,255,0.02)", padding: "12px", borderRadius: "8px", marginBottom: "12px" }}>
-                    <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
+              <div className="wf-exercises">
+                {cat.exercises.map((ex, ei) => (
+                  <div key={ei} className="wf-ex-card">
+                    {/* Nombre del ejercicio */}
+                    <div className="wf-ex-name-row">
                       <input
                         type="text"
-                        className="exercise-name-input"
+                        className="wf-ex-name-input"
                         value={ex.name}
-                        onChange={(e) => handleExerciseNameChange(catIdx, exIdx, e.target.value)}
-                        style={{ flex: 1, background: "transparent", border: "none", borderBottom: "1px solid var(--border)", color: "var(--text-1)", fontSize: "16px", padding: "4px" }}
+                        onChange={(e) => setExName(ci, ei, e.target.value)}
+                        placeholder="Nombre del ejercicio"
                       />
-                      <button onClick={() => removeExercise(catIdx, exIdx)} style={{ background: "transparent", border: "none", color: "var(--error)", cursor: "pointer" }}>
-                        <Trash2 size={16} />
+                      <button
+                        type="button"
+                        className="icon-btn icon-btn--danger"
+                        onClick={() => removeExercise(ci, ei)}
+                        disabled={cat.exercises.length === 1}
+                        aria-label="Eliminar ejercicio"
+                      >
+                        <Trash2 size={14} />
                       </button>
                     </div>
 
-                    <div className="sets-table">
-                      {ex.sets.map((set, setIdx) => (
-                        <div key={set.id} style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
-                          <span style={{ width: "24px", color: "var(--text-3)" }}>#{setIdx + 1}</span>
-                          <input
-                            type="number"
-                            placeholder="kg"
-                            value={set.weight}
-                            onChange={(e) => updateSet(catIdx, exIdx, setIdx, "weight", e.target.value)}
-                            style={{ width: "60px", padding: "4px", textAlign: "center", borderRadius: "4px", border: "1px solid var(--border)", background: "rgba(0,0,0,0.2)", color: "white" }}
-                          />
-                          <input
-                            type="number"
-                            placeholder="reps"
-                            value={set.reps}
-                            onChange={(e) => updateSet(catIdx, exIdx, setIdx, "reps", e.target.value)}
-                            style={{ width: "60px", padding: "4px", textAlign: "center", borderRadius: "4px", border: "1px solid var(--border)", background: "rgba(0,0,0,0.2)", color: "white" }}
-                          />
-                          <button 
-                            onClick={() => toggleSetDone(catIdx, exIdx, setIdx)}
-                            style={{ 
-                              marginLeft: "auto", 
-                              padding: "4px 8px", 
-                              borderRadius: "4px", 
-                              border: "none",
-                              background: set.done ? "var(--primary)" : "rgba(255,255,255,0.1)",
-                              color: set.done ? "black" : "white",
-                              fontSize: "12px",
-                              cursor: "pointer"
-                            }}
-                          >
-                            {set.done ? "Hecho" : "Pendiente"}
-                          </button>
-                        </div>
-                      ))}
+                    {/* Cabecera de columnas */}
+                    <div className="wf-sets-header">
+                      <span className="wf-col-num">#</span>
+                      <span className="wf-col-label">Peso (kg)</span>
+                      <span className="wf-col-label">Reps</span>
+                      <span className="wf-col-label" style={{ textAlign: "center" }}>✓</span>
                     </div>
 
-                    <button 
-                      onClick={() => addSet(catIdx, exIdx)} 
-                      style={{ marginTop: "8px", background: "transparent", border: "1px dashed var(--border)", color: "var(--text-2)", padding: "4px 8px", borderRadius: "4px", fontSize: "12px", display: "flex", alignItems: "center", gap: "4px", cursor: "pointer" }}
+                    {/* Filas de series */}
+                    {ex.sets.map((set, si) => (
+                      <div
+                        key={set.id}
+                        className={`wf-set-row ${set.done ? "wf-set-row--done" : ""}`}
+                      >
+                        <span className="wf-set-num">{si + 1}</span>
+                        <input
+                          type="number"
+                          className="wf-set-input"
+                          placeholder="0"
+                          value={set.weight}
+                          inputMode="decimal"
+                          onChange={(e) => updateSet(ci, ei, si, "weight", e.target.value)}
+                        />
+                        <input
+                          type="number"
+                          className="wf-set-input"
+                          placeholder="0"
+                          value={set.reps}
+                          inputMode="numeric"
+                          onChange={(e) => updateSet(ci, ei, si, "reps", e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          className={`wf-done-btn ${set.done ? "wf-done-btn--active" : ""}`}
+                          onClick={() => toggleDone(ci, ei, si)}
+                          aria-label={set.done ? "Desmarcar" : "Marcar como hecha"}
+                        >
+                          <Check size={13} strokeWidth={3} />
+                        </button>
+                      </div>
+                    ))}
+
+                    {/* Añadir serie */}
+                    <button
+                      type="button"
+                      className="wf-add-set-btn"
+                      onClick={() => addSet(ci, ei)}
                     >
-                      <Plus size={12} /> Añadir Serie
+                      <Plus size={13} />
+                      Añadir serie
                     </button>
                   </div>
                 ))}
 
-                <button 
-                  onClick={() => addExercise(catIdx)} 
-                  style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "none", color: "white", padding: "8px", borderRadius: "6px", display: "flex", justifyContent: "center", alignItems: "center", gap: "6px", cursor: "pointer", marginTop: "8px" }}
+                {/* Añadir ejercicio */}
+                <button
+                  type="button"
+                  className="wf-add-ex-btn"
+                  onClick={() => addExercise(ci)}
                 >
-                  <Plus size={16} /> Añadir Ejercicio
+                  <Plus size={15} />
+                  Añadir ejercicio a {cat.name}
                 </button>
               </div>
             )}
           </div>
         ))}
+      </div>
+
+      {/* Footer con botón principal */}
+      <div className="sticky-footer">
+        <button
+          type="button"
+          className={`cta-button ${saving ? "cta-button--saving" : ""}`}
+          onClick={handleSave}
+        >
+          {saving ? (
+            <>
+              <Check size={18} strokeWidth={3} />
+              Guardando…
+            </>
+          ) : (
+            <>
+              <CheckCircle2 size={18} />
+              Guardar entrenamiento
+            </>
+          )}
+        </button>
       </div>
     </div>
   );
