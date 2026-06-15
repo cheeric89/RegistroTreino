@@ -2,7 +2,7 @@
 // Para extender: aquí puedes integrar React Router si la app crece
 import { useState } from "react";
 import * as DashboardModule from "./components/dashboards";
-const Dashboard = DashboardModule.Dashboard || DashboardModule.default || (() => null);
+const Dashboard = DashboardModule.Dashboard || DashboardModule.default || (() => null);5 
 import DaySelector from "./components/dayselector"; 
 import TemplateSelector from "./components/templateselector"; 
 import CategorySelector from "./components/categoryselector"; 
