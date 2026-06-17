@@ -1,7 +1,13 @@
 // src/components/workoutform.jsx
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { ChevronLeft, Plus, Trash2, CheckCircle2, Check } from "lucide-react";
-import { saveWorkout } from "../utils/storage";
+import { toast } from "sonner";
+import {
+  saveWorkout,
+  saveDraftWorkout,
+  getDraftWorkout,
+  clearDraftWorkout,
+} from "../utils/storage";
 import { getProgressionHint, getPRStatus } from "../utils/progressionEngine";
 import ExerciseHint, { PRBadge } from "./ExerciseHint";
 
@@ -30,13 +36,52 @@ export default function WorkoutForm({ day, categories, templateCategories, onSav
   // Lista de { exerciseName, status } de los PRs detectados en el guardado
   const [prResults, setPrResults] = useState([]);
 
-  const [catData, setCatData] = useState(() => {
+  // Misma lógica original, factorizada para poder reusarla si el
+  // usuario decide descartar un borrador recuperado
+  const buildFreshCatData = () => {
     if (templateCategories?.length > 0)
       return templateCategories.map((tc) => initCategory(tc.name, tc.exercises));
     if (categories?.length > 0)
       return categories.map((name) => initCategory(name));
     return [];
-  });
+  };
+
+  // Leemos el borrador UNA sola vez, en el primer render
+  const [initialDraft] = useState(() => getDraftWorkout());
+
+  const [catData, setCatData] = useState(() =>
+    initialDraft?.catData?.length > 0 ? initialDraft.catData : buildFreshCatData()
+  );
+
+  // Aviso de recuperación: solo se dispara al montar el componente
+  useEffect(() => {
+    if (initialDraft?.catData?.length > 0) {
+      toast.info("Recuperamos tu entrenamiento sin guardar", {
+        description: initialDraft.day ? `Sesión: ${initialDraft.day}` : undefined,
+        action: {
+          label: "Descartar",
+          onClick: () => {
+            clearDraftWorkout();
+            setCatData(buildFreshCatData());
+          },
+        },
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Autosave: persiste el borrador ante cada cambio del formulario
+  useEffect(() => {
+    if (!catData || catData.length === 0) return;
+    saveDraftWorkout({ day, categories, templateCategories, catData });
+  }, [catData, day, categories, templateCategories]);
+
+  // Si el usuario sale a propósito (botón atrás), no es una pérdida
+  // accidental — limpiamos el borrador para que no contamine la próxima sesión
+  const handleBack = useCallback(() => {
+    clearDraftWorkout();
+    onBack?.();
+  }, [onBack]);
 
   // ── Mutadores de estado ────────────────────────────────
   const toggleExpand = useCallback((ci) =>
@@ -154,7 +199,14 @@ export default function WorkoutForm({ day, categories, templateCategories, onSav
       categories: catData.map((c) => c.name), // Dashboard lo usa
     };
 
-    saveWorkout(workout);
+    const didSave = saveWorkout(workout);
+
+    // Solo borramos el borrador si el guardado realmente tuvo éxito.
+    // Si saveWorkout() falla (localStorage lleno, modo incógnito, etc.)
+    // preferimos conservar el borrador para no perder el progreso.
+    if (didSave) {
+      clearDraftWorkout();
+    }
 
     // Breve pausa para mostrar feedback antes de navegar
     setTimeout(() => {
@@ -168,7 +220,7 @@ export default function WorkoutForm({ day, categories, templateCategories, onSav
     <div className="screen">
       {/* Topbar */}
       <div className="topbar">
-        <button type="button" className="back-btn" onClick={onBack}>
+        <button type="button" className="back-btn" onClick={handleBack}>
           <ChevronLeft size={20} />
         </button>
         <div className="topbar-title">

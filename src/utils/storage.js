@@ -51,3 +51,44 @@ export function deleteWorkout(timestamp) {
     return false;
   }
 }
+
+// ── Persistencia de BORRADOR (entrenamiento en progreso) ───────────
+// A diferencia de getAllWorkouts/saveWorkout (que guardan sesiones YA
+// finalizadas), esto guarda el estado EN VIVO del formulario para que
+// no se pierda si el navegador se cierra o recarga sin querer.
+const DRAFT_KEY = "treino_workout_draft";
+
+/** Guarda (sobrescribe) el borrador actual del formulario */
+export function saveDraftWorkout(draft) {
+  try {
+    localStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({ ...draft, savedAt: Date.now() })
+    );
+    return true;
+  } catch {
+    return false; // localStorage lleno, modo incógnito, etc.
+  }
+}
+
+/** Recupera el borrador guardado, o null si no existe / está corrupto */
+export function getDraftWorkout() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    // JSON corrupto: lo eliminamos para que no vuelva a fallar siempre
+    localStorage.removeItem(DRAFT_KEY);
+    return null;
+  }
+}
+
+/** Elimina el borrador (tras guardar con éxito o al descartarlo) */
+export function clearDraftWorkout() {
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
