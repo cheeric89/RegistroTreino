@@ -54,14 +54,28 @@ input, button, textarea { font-family: inherit; }
 .app-root {
   max-width: 440px;
   margin: 0 auto;
-  min-height: 100vh;
+  height: 100vh;     /* fallback para navegadores viejos */
+  height: 100dvh;    /* única declaración de viewport en TODA la app */
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;  /* red de seguridad: si algo no encaja, scrollea el root en vez de recortar contenido */
   position: relative;
+}
+
+.app-header {
+  flex-shrink: 0;     /* nunca se comprime, mantiene su alto natural */
+}
+
+.app-main {
+  flex: 1;
+  min-height: 0;      /* mismo motivo que .form-scroll: permite que el flex item se encoja sin desbordar */
+  overflow-y: auto;   /* scroll de respaldo para vistas como Dashboard que no usan .form-scroll interno */
 }
 
 .screen {
   display: flex;
   flex-direction: column;
-  height: 100dvh; /* Usa unidades dinámicas para móviles */
+  height: 100%;        /* antes: 100dvh — ahora hereda del padre real, sin volver a pedir el viewport */
   width: 100%;
 }
 
