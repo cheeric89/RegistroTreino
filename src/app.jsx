@@ -16,7 +16,7 @@ import TemplateSelector from "./components/templateselector";
 import CategorySelector from "./components/categoryselector";
 import WorkoutForm from "./components/workoutform";
 import WorkoutSummary from "./components/workoutsummary";
-
+import ProfileView from "./components/profile/ProfileView";
 // ── Componentes temporales (Evitan que Vite explote mientras regresa Claude) ──
 
 
@@ -127,72 +127,62 @@ export default function App() {
   }
 
   return (
-    <div className="app-root" style={{ minHeight: "100vh", background: "#121214" }}>
-      {/* ── Onboarding modal ── */}
-      {OnboardingModal && user && (
-        <OnboardingModal userId={user?.id} />
+    <div className="app-root" style={{ minHeight: "100vh", background: "#121214", color: "white" }}>
+      
+      {/* ── HEADER DE TREINO ── */}
+      {view !== VIEWS.AUTH && (
+        <header style={{ 
+          display: "flex", 
+          justifyContent: "space-between", 
+          alignItems: "center", 
+          padding: "15px 20px", 
+          background: "#1e1e24",
+          borderBottom: "1px solid #333" 
+        }}>
+          <div 
+            style={{ fontWeight: "bold", fontSize: "1.2rem", letterSpacing: "1px", cursor: "pointer" }} 
+            onClick={() => navigate(VIEWS.DASHBOARD)}
+          >
+            TREI<span style={{ color: "#a855f7" }}>NO</span>
+          </div>
+          <button 
+            onClick={() => navigate(VIEWS.PROFILE)}
+            style={{ 
+              background: "#7c3aed", 
+              border: "none", 
+              color: "white", 
+              padding: "8px 16px", 
+              borderRadius: "20px", 
+              cursor: "pointer",
+              fontWeight: "600"
+            }}
+          >
+            👤 Perfil
+          </button>
+        </header>
       )}
 
-      {/* ── Dashboard ── */}
-      {view === VIEWS.DASHBOARD && (
-        <Dashboard
-          onStart={handleStart}
-          onProgress={() => navigate(VIEWS.PROGRESS)}
-        />
-      )}
+      {/* ── CONTENIDO ── */}
+      <main style={{ padding: "20px" }}>
+        {/* Onboarding modal */}
+        {OnboardingModal && user && <OnboardingModal userId={user?.id} />}
 
-      {/* ── Workout flow ── */}
-      {view === VIEWS.TEMPLATE_SELECTOR && (
-        <TemplateSelector onSelect={handleTemplateSelected} onBack={handleReset} />
-      )}
+        {/* Dashboard */}
+        {view === VIEWS.DASHBOARD && (
+          <Dashboard onStart={handleStart} onProgress={() => navigate(VIEWS.PROGRESS)} />
+        )}
 
-      {view === VIEWS.DAY_SELECTOR && (
-        <DaySelector
-          onSelect={handleDaySelected}
-          onBack={() => navigate(VIEWS.TEMPLATE_SELECTOR)}
-        />
-      )}
-
-      {view === VIEWS.CATEGORY_SELECTOR && (
-        <CategorySelector
-          day={selectedDay}
-          onConfirm={handleCategoriesConfirmed}
-          onBack={() => navigate(VIEWS.DAY_SELECTOR)}
-        />
-      )}
-
-      {view === VIEWS.WORKOUT_FORM && (
-        <WorkoutForm
-          day={selectedDay}
-          categories={
-            selectedTemplate && selectedTemplate.categories
-              ? selectedTemplate.categories.map((c) => c.name)
-              : selectedCategories
-          }
-          templateCategories={
-            selectedTemplate && selectedTemplate.categories
-              ? selectedTemplate.categories
-              : null
-          }
-          onSave={handleWorkoutSaved}
-          onBack={() => {
-            if (selectedTemplate && selectedTemplate.id !== "custom") {
-              navigate(VIEWS.DAY_SELECTOR);
-            } else {
-              navigate(VIEWS.CATEGORY_SELECTOR);
-            }
-          }}
-        />
-      )}
-
-      {view === VIEWS.SUMMARY && (
-        <WorkoutSummary workout={savedWorkout} onDone={handleReset} />
-      )}
-
-      {/* ── Progress ── */}
-      {view === VIEWS.PROGRESS && ProgressScreen && (
-        <ProgressScreen onBack={() => navigate(VIEWS.DASHBOARD)} />
-      )}
+        {/* Workout flow */}
+        {view === VIEWS.TEMPLATE_SELECTOR && <TemplateSelector onSelect={handleTemplateSelected} onBack={handleReset} />}
+        {view === VIEWS.DAY_SELECTOR && <DaySelector onSelect={handleDaySelected} onBack={() => navigate(VIEWS.TEMPLATE_SELECTOR)} />}
+        {view === VIEWS.CATEGORY_SELECTOR && <CategorySelector day={selectedDay} onConfirm={handleCategoriesConfirmed} onBack={() => navigate(VIEWS.DAY_SELECTOR)} />}
+        {view === VIEWS.WORKOUT_FORM && <WorkoutForm day={selectedDay} onSave={handleWorkoutSaved} onBack={() => navigate(VIEWS.CATEGORY_SELECTOR)} />}
+        {view === VIEWS.SUMMARY && <WorkoutSummary workout={savedWorkout} onDone={handleReset} />}
+        
+        {/* Progress & Profile */}
+        {view === VIEWS.PROGRESS && <ProgressScreen onBack={() => navigate(VIEWS.DASHBOARD)} />}
+        {view === VIEWS.PROFILE && <ProfileView onBack={() => navigate(VIEWS.DASHBOARD)} />}
+      </main>
     </div>
   );
 }

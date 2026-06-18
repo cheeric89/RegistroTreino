@@ -92,3 +92,31 @@ export function clearDraftWorkout() {
     return false;
   }
 }
+
+// ── Persistencia LOCAL del perfil (fallback sin conexión) ──────────
+// Cuando hay sesión activa, useProfile.js prioriza la tabla `user_stats`
+// de Supabase. Esto solo se usa si esa consulta falla (sin red, RLS mal
+// configurado, etc.) o todavía no hay usuario — mismo patrón de
+// fallback que ya usa useWorkouts.js para los entrenamientos.
+
+const PROFILE_KEY = "treino_user_profile";
+
+/** Lee el perfil cacheado localmente, o null si no existe */
+export function getLocalProfile() {
+  try {
+    const raw = localStorage.getItem(PROFILE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Sobrescribe el perfil cacheado localmente */
+export function saveLocalProfile(profile) {
+  try {
+    localStorage.setItem(PROFILE_KEY, JSON.stringify(profile || {}));
+    return true;
+  } catch {
+    return false;
+  }
+}

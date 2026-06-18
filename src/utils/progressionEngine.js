@@ -185,3 +185,51 @@ export function getPRStatus(exerciseName, currentSets = []) {
     volumeDelta: Math.round(delta),
   };
 }
+
+export function getAllPRs(workouts = []) {
+  const map = new Map();
+
+  for (const workout of workouts) {
+    const cats = workout?.exercises ?? workout?.categories ?? [];
+    if (!Array.isArray(cats)) continue;
+
+    for (const cat of cats) {
+      const exercises = Array.isArray(cat?.exercises) ? cat.exercises : [];
+      for (const ex of exercises) {
+        if (!ex?.name?.trim()) continue;
+        const key = normalizeName(ex.name);
+        const sets = Array.isArray(ex.sets) ? ex.sets : [];
+
+        for (const s of sets) {
+          const weight = parseFloat(s?.weight) || 0;
+          const reps = parseInt(s?.reps, 10) || 0;
+          if (weight <= 0 && reps <= 0) continue;
+
+          const volume = weight * reps;
+          const current = map.get(key);
+
+          // PR = mayor peso levantado; si hay empate de peso, gana el
+          // set con más volumen (peso × reps) como criterio secundario.
+          const isBetter =
+            !current ||
+            weight > current.best_weight ||
+            (weight === current.best_weight && volume > current.best_volume);
+
+          if (isBetter) {
+            map.set(key, {
+              exercise_name: ex.name,
+              exercise_key: key,
+              best_weight: weight,
+              best_reps: reps,
+              best_volume: volume,
+              achieved_at: workout?.date ?? null,
+              workout_timestamp: workout?.timestamp ?? null,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return Array.from(map.values()).sort((a, b) => b.best_volume - a.best_volume);
+}
