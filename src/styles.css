@@ -59,16 +59,18 @@ input, button, textarea { font-family: inherit; }
 }
 
 .screen {
-  min-height: 100vh;
-  padding: 0 0 80px;
   display: flex;
   flex-direction: column;
+  height: 100dvh; /* Usa unidades dinámicas para móviles */
+  width: 100%;
 }
 
 .form-scroll {
   flex: 1;
   overflow-y: auto;
+  min-height: 0; /* IMPRESCINDIBLE: Permite que el flex item se encoja */
   padding: 0 16px;
+  padding-bottom: 20px; /* Espacio para que no se pegue al footer */
 }
 
 /* ── Topbar ──────────────────────────────────────────────── */
@@ -226,15 +228,11 @@ input, button, textarea { font-family: inherit; }
 
 /* ── Sticky footer ───────────────────────────────────────── */
 .sticky-footer {
-  position: fixed;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
+  position: static; /* Cambia esto de 'fixed' a 'static' */
   width: 100%;
-  max-width: 440px;
-  padding: 12px 16px 24px;
   background: linear-gradient(to top, var(--bg) 80%, transparent);
-  z-index: 20;
+  padding: 12px 16px 24px;
+  flex-shrink: 0; /* Evita que se encoja */
 }
 
 /* ── Historial reciente ──────────────────────────────────── */
