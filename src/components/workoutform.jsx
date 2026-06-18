@@ -51,16 +51,20 @@ export default function WorkoutForm({ day, categories = [], templateCategories =
   useEffect(() => {
     const draft = getDraftWorkout();
     if (draft?.catData?.length > 0) {
-      toast.info("Recuperamos tu entrenamiento sin guardar", {
-        description: draft.day ? `Sesión: ${draft.day}` : undefined,
-        action: {
-          label: "Descartar",
-          onClick: () => {
-            clearDraftWorkout();
-            setCatData(buildFreshCatData());
-          },
-        },
-      });
+      toast.info("💪 Entrenamiento recuperado", {
+  description: `Continuamos tu sesión del ${draft.day}. Puedes seguir donde lo dejaste o descartarla.`,
+  action: {
+    label: "Seguir",
+    onClick: () => {}
+  },
+  cancel: {
+    label: "Descartar",
+    onClick: () => {
+      clearDraftWorkout();
+      setCatData(buildFreshCatData());
+    }
+  }
+});
     }
   }, [buildFreshCatData]);
 
