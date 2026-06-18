@@ -66,11 +66,12 @@ const VIEWS = {
 
 export default function App() {
   const { user, loading } = useAuth();
-
+  
   const [view, setView] = useState(VIEWS.DASHBOARD);
   const [isGuest, setIsGuest] = useState(false); // <-- Controla el acceso de invitado de forma segura
   const [selectedDay, setSelectedDay] = useState(null);
   const [selectedCategories, setSelectedCategories] = useState([]);
+  const [templateCategories, setTemplateCategories] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [savedWorkout, setSavedWorkout] = useState(null);
 
@@ -80,9 +81,15 @@ export default function App() {
   const handleStart = () => navigate(VIEWS.TEMPLATE_SELECTOR);
 
   const handleTemplateSelected = (template) => {
-    setSelectedTemplate(template);
-    navigate(VIEWS.DAY_SELECTOR);
-  };
+  console.log("TEMPLATE COMPLETO:", JSON.stringify(template, null, 2));
+
+  setSelectedTemplate(template);
+
+  // Guarda las categorías de la plantilla elegida
+  setTemplateCategories(template.categories || []);
+
+  navigate(VIEWS.DAY_SELECTOR);
+};
 
   const handleDaySelected = (day) => {
     setSelectedDay(day);
@@ -94,9 +101,10 @@ export default function App() {
   };
 
   const handleCategoriesConfirmed = (cats) => {
-    setSelectedCategories(cats);
-    navigate(VIEWS.WORKOUT_FORM);
-  };
+  console.log("DEBUG: Cats recibidos en App.jsx:", cats); // <--- ESTO NOS DIRÁ SI EL PROBLEMA VIENE DEL SELECTOR
+  setSelectedCategories(cats);
+  navigate(VIEWS.WORKOUT_FORM);
+};
 
   const handleWorkoutSaved = (workout) => {
     setSavedWorkout(workout);
@@ -104,12 +112,13 @@ export default function App() {
   };
 
   const handleReset = () => {
-    setSelectedDay(null);
-    setSelectedCategories([]);
-    setSelectedTemplate(null);
-    setSavedWorkout(null);
-    navigate(VIEWS.DASHBOARD);
-  };
+  setSelectedDay(null);
+  setSelectedCategories([]);
+  setTemplateCategories([]);
+  setSelectedTemplate(null);
+  setSavedWorkout(null);
+  navigate(VIEWS.DASHBOARD);
+};
 
   // ── Auth loading splash ────────────────────────────────
   if (loading) {
@@ -138,7 +147,7 @@ export default function App() {
       </div>
     );
   }
-
+  console.log("DEBUG — selectedDay actual:", selectedDay);
   return (
     <div className="app-root" style={{ background: "#121214", color: "white" }}>
       
@@ -197,20 +206,59 @@ export default function App() {
         {OnboardingModal && user && <OnboardingModal userId={user?.id} />}
 
         {/* Dashboard */}
-        {view === VIEWS.DASHBOARD && (
-          <Dashboard onStart={handleStart} onProgress={() => navigate(VIEWS.PROGRESS)} />
-        )}
+{view === VIEWS.DASHBOARD && (
+  <Dashboard 
+    onStart={handleStart} 
+    onProgress={() => navigate(VIEWS.PROGRESS)} 
+  />
+)}
 
-        {/* Workout flow */}
-        {view === VIEWS.TEMPLATE_SELECTOR && <TemplateSelector onSelect={handleTemplateSelected} onBack={handleReset} />}
-        {view === VIEWS.DAY_SELECTOR && <DaySelector onSelect={handleDaySelected} onBack={() => navigate(VIEWS.TEMPLATE_SELECTOR)} />}
-        {view === VIEWS.CATEGORY_SELECTOR && <CategorySelector day={selectedDay} onConfirm={handleCategoriesConfirmed} onBack={() => navigate(VIEWS.DAY_SELECTOR)} />}
-        {view === VIEWS.WORKOUT_FORM && <WorkoutForm day={selectedDay} onSave={handleWorkoutSaved} onBack={() => navigate(VIEWS.CATEGORY_SELECTOR)} />}
-        {view === VIEWS.SUMMARY && <WorkoutSummary workout={savedWorkout} onDone={handleReset} />}
-        
-        {/* Progress & Profile */}
-        {view === VIEWS.PROGRESS && <ProgressScreen onBack={() => navigate(VIEWS.DASHBOARD)} />}
-        {view === VIEWS.PROFILE && <ProfileView onBack={() => navigate(VIEWS.DASHBOARD)} />}
+{/* Workout flow */}
+{view === VIEWS.TEMPLATE_SELECTOR && (
+  <TemplateSelector 
+    onSelect={handleTemplateSelected} 
+    onBack={handleReset} 
+  />
+)}
+
+{view === VIEWS.DAY_SELECTOR && (
+  <DaySelector 
+    onSelect={handleDaySelected}
+    onBack={() => navigate(VIEWS.TEMPLATE_SELECTOR)}
+  />
+)}
+
+{view === VIEWS.CATEGORY_SELECTOR && (
+  <CategorySelector 
+    day={selectedDay}
+    onConfirm={handleCategoriesConfirmed}
+    onBack={() => navigate(VIEWS.DAY_SELECTOR)}
+  />
+)}
+
+{view === VIEWS.WORKOUT_FORM && (
+  <WorkoutForm 
+    day={selectedDay}
+    categories={selectedCategories}
+    templateCategories={templateCategories || []}
+    onSave={handleWorkoutSaved}
+    onBack={() => navigate(VIEWS.CATEGORY_SELECTOR)}
+  />
+)}
+
+{view === VIEWS.SUMMARY && (
+  <WorkoutSummary 
+    workout={savedWorkout}
+    onDone={handleReset}
+  />
+)}
+
+        {/* Perfil */}
+        {view === VIEWS.PROFILE && (
+          <ProfileView 
+            onBack={() => navigate(VIEWS.DASHBOARD)}
+          />
+        )}
       </main>
     </div>
   );
