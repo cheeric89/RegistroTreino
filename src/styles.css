@@ -1116,3 +1116,28 @@ input[type=number] { -moz-appearance: textfield; }
   border-radius: 10px !important;
   font-weight: 600 !important;
 }
+
+.wf-rest-btn {
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #7c3aed;
+  background: transparent;
+  color: #a855f7;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.wf-rest-btn:hover {
+  background: #7c3aed;
+  color: white;
+}
+
+.wf-rest-btn:disabled {
+  background: #7c3aed;
+  color: white;
+  opacity: 0.8;
+  cursor: default;
+}

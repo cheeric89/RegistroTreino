@@ -10,7 +10,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { getLocalProfile, saveLocalProfile } from "../utils/storage";
 
-const TABLE = "user_stats";
+const TABLE = "profiles";
 
 export function useProfile() {
   const { user } = useAuth();
@@ -36,7 +36,7 @@ export function useProfile() {
     const { data, error: err } = await supabase
       .from(TABLE)
       .select("*")
-      .eq("user_id", user.id)
+      .eq("id", user.id)
       .maybeSingle();
 
     if (err) {
@@ -72,7 +72,7 @@ export function useProfile() {
 
       const { data, error: err } = await supabase
         .from(TABLE)
-        .upsert({ user_id: user.id, ...updates }, { onConflict: "user_id" })
+        .upsert({ id: user.id, ...updates }, { onConflict: "id" })
         .select()
         .single();
 

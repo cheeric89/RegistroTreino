@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { ChevronLeft, Plus, Trash2, CheckCircle2, Check } from "lucide-react";
 import { toast } from "sonner";
+import { useProfile } from "../hooks/useProfile";
 import {
   saveWorkout,
   saveDraftWorkout,
@@ -29,9 +30,13 @@ const initCategory = (name, presetExercises = null) => ({
 });
 
 export default function WorkoutForm({ day, categories = [], templateCategories = [], workoutStartTime, onSave, onBack }) {
+  const { profile } = useProfile();
   const [saving, setSaving] = useState(false);
   const [prResults, setPrResults] = useState([]);
   const [elapsedTime, setElapsedTime] = useState(0);
+
+  const [resting, setResting] = useState(false);
+  const [restRemaining, setRestRemaining] = useState(0);
   console.log("Inicio del entrenamiento:", workoutStartTime);
   useEffect(() => {
   if (!workoutStartTime) return;
@@ -107,11 +112,43 @@ export default function WorkoutForm({ day, categories = [], templateCategories =
   templateCategories,
   workoutStartTime
 ]);
+useEffect(() => {
+  if (!resting) return;
+
+  const interval = setInterval(() => {
+    setRestRemaining((prev) => {
+      if (prev <= 1) {
+        clearInterval(interval);
+        setResting(false);
+
+        toast.success("🔥 Descanso terminado");
+
+        if ("vibrate" in navigator) {
+          navigator.vibrate([300, 200, 300]);
+        }
+
+        return 0;
+      }
+
+      return prev - 1;
+    });
+  }, 1000);
+
+  return () => clearInterval(interval);
+}, [resting]);
 
   const handleBack = useCallback(() => {
     clearDraftWorkout();
     onBack?.();
   }, [onBack]);
+
+  const startRestTimer = useCallback(() => {
+  const seconds = profile?.rest_time_seconds || 120;
+
+  setRestRemaining(seconds);
+  setResting(true);
+}, [profile]);
+
 
   // ── Mutadores de estado ────────────────────────────────
   const toggleExpand = useCallback((ci) =>
@@ -174,18 +211,21 @@ export default function WorkoutForm({ day, categories = [], templateCategories =
     if (saveWorkout(workout)) clearDraftWorkout();
     setTimeout(() => { setSaving(false); onSave(workout); }, detected.length > 0 ? 2200 : 350);
   }, [saving, catData, day, onSave]);
-  const formatTime = (seconds) => {
+const formatTime = (seconds) => {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = seconds % 60;
 
-  return [
-    hours,
-    minutes,
-    secs
-  ]
+  return [hours, minutes, secs]
     .map((n) => String(n).padStart(2, "0"))
     .join(":");
+};
+
+const formatRestTime = (seconds) => {
+  const mins = String(Math.floor(seconds / 60)).padStart(2, "0");
+  const secs = String(seconds % 60).padStart(2, "0");
+
+  return `${mins}:${secs}`;
 };
 
   return (
@@ -295,6 +335,19 @@ export default function WorkoutForm({ day, categories = [], templateCategories =
                   <button type="button" className="wf-add-set-btn" onClick={() => addSet(ci, ei)}>
                     + Serie
                   </button>
+                  <button
+  type="button"
+  className="wf-rest-btn"
+  onClick={() => {
+    setRestRemaining(profile?.rest_time_seconds || 120);
+    setResting(true);
+  }}
+  disabled={resting}
+>
+  {resting
+    ? `⏳ Descansando ${formatRestTime(restRemaining)}`
+    : `⏱ Descansar ${formatRestTime(profile?.rest_time_seconds || 120)}`}
+</button>
                 </div>
               ))}
 

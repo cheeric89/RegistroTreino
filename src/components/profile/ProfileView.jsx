@@ -1,12 +1,23 @@
 // src/components/profile/ProfileView.jsx
 import { useState, useEffect, useCallback } from "react";
-import { ChevronLeft, User, Trophy, LineChart, Edit3, Save, X, LogOut, KeyRound, Trash2 } from "lucide-react";
+import { 
+  ChevronLeft, 
+  User, 
+  Trophy, 
+  LineChart, 
+  Settings,
+  Edit3, 
+  Save, 
+  X, 
+  LogOut 
+} from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../contexts/AuthContext";
 import { useProfile } from "../../hooks/useProfile";
 import { supabase } from "../../lib/supabase";
 import PRsView from "./PRsView";
 import ProgressView from "./ProgressView";
+import SettingsView from "./SettingsView";
 
 // --- ESTILOS TREINO ---
 const btnStyle = {
@@ -27,6 +38,7 @@ const TABS = [
   { id: "overview", label: "Perfil", icon: User },
   { id: "prs", label: "Récords", icon: Trophy },
   { id: "progress", label: "Progreso", icon: LineChart },
+  { id: "settings", label: "Ajustes", icon: Settings },
 ];
 
 export default function ProfileView({ initialTab = "overview", onBack }) {
@@ -92,6 +104,7 @@ export default function ProfileView({ initialTab = "overview", onBack }) {
         )}
         {tab === "prs" && <PRsView />}
         {tab === "progress" && <ProgressView />}
+        {tab === "settings" && <SettingsView />}
       </div>
     </div>
   );
