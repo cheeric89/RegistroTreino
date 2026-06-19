@@ -14,7 +14,8 @@
 // habían consumido parte de ese espacio) y .form-scroll terminaba
 // colapsado a 0 mientras el footer (flex-shrink:0) seguía visible.
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getDraftWorkout } from "./utils/storage";
 import { useAuth } from "./contexts/AuthContext";
 import AuthScreen from "./components/auth/AuthScreen"; // Asegúrate de importar tu componente
 
@@ -74,11 +75,39 @@ export default function App() {
   const [templateCategories, setTemplateCategories] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [savedWorkout, setSavedWorkout] = useState(null);
+  const [workoutStartTime, setWorkoutStartTime] = useState(null);
+  useEffect(() => {
+  const draft = getDraftWorkout();
+
+  if (draft?.catData?.length > 0) {
+    setSelectedDay(draft.day || null);
+    setSelectedCategories(draft.categories || []);
+    setTemplateCategories(draft.templateCategories || []);
+    setWorkoutStartTime(draft.workoutStartTime || null);
+
+    // Volver directamente al entrenamiento
+    setView(VIEWS.WORKOUT_FORM);
+  }
+}, []);
 
   const navigate = (nextView) => setView(nextView);
+  const formatTime = (seconds) => {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+
+  if (hours > 0) {
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  }
+
+  return `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+};
 
   // ── Handlers ───────────────────────────────────────────
-  const handleStart = () => navigate(VIEWS.TEMPLATE_SELECTOR);
+  const handleStart = () => {
+  setWorkoutStartTime(Date.now());
+  navigate(VIEWS.TEMPLATE_SELECTOR);
+  };
 
   const handleTemplateSelected = (template) => {
   console.log("TEMPLATE COMPLETO:", JSON.stringify(template, null, 2));
@@ -92,13 +121,17 @@ export default function App() {
 };
 
   const handleDaySelected = (day) => {
-    setSelectedDay(day);
-    if (selectedTemplate && selectedTemplate.id !== "custom") {
-      navigate(VIEWS.WORKOUT_FORM);
-    } else {
-      navigate(VIEWS.CATEGORY_SELECTOR);
-    }
-  };
+  setSelectedDay(day);
+
+  // NUEVO: iniciar la sesión de entrenamiento
+  setWorkoutStartTime(Date.now());
+
+  if (selectedTemplate && selectedTemplate.id !== "custom") {
+    navigate(VIEWS.WORKOUT_FORM);
+  } else {
+    navigate(VIEWS.CATEGORY_SELECTOR);
+  }
+};
 
   const handleCategoriesConfirmed = (cats) => {
   console.log("DEBUG: Cats recibidos en App.jsx:", cats); // <--- ESTO NOS DIRÁ SI EL PROBLEMA VIENE DEL SELECTOR
@@ -117,6 +150,7 @@ export default function App() {
   setTemplateCategories([]);
   setSelectedTemplate(null);
   setSavedWorkout(null);
+  setWorkoutStartTime(null);
   navigate(VIEWS.DASHBOARD);
 };
 
@@ -241,6 +275,7 @@ export default function App() {
     day={selectedDay}
     categories={selectedCategories}
     templateCategories={templateCategories || []}
+    workoutStartTime={workoutStartTime}
     onSave={handleWorkoutSaved}
     onBack={() => navigate(VIEWS.CATEGORY_SELECTOR)}
   />

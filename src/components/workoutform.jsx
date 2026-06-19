@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from "react";
+import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { ChevronLeft, Plus, Trash2, CheckCircle2, Check } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -28,9 +28,30 @@ const initCategory = (name, presetExercises = null) => ({
     : [{ name: "Ejercicio 1", sets: [newSet()] }],
 });
 
-export default function WorkoutForm({ day, categories = [], templateCategories = [], onSave, onBack }) {
+export default function WorkoutForm({ day, categories = [], templateCategories = [], workoutStartTime, onSave, onBack }) {
   const [saving, setSaving] = useState(false);
   const [prResults, setPrResults] = useState([]);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  console.log("Inicio del entrenamiento:", workoutStartTime);
+  useEffect(() => {
+  if (!workoutStartTime) return;
+
+  const updateTimer = () => {
+    const seconds = Math.floor(
+      (Date.now() - workoutStartTime) / 1000
+    );
+
+    setElapsedTime(seconds);
+  };
+
+  // Actualiza inmediatamente
+  updateTimer();
+
+  // Actualiza cada segundo
+  const interval = setInterval(updateTimer, 1000);
+
+  return () => clearInterval(interval);
+}, [workoutStartTime]);
 
   // Definimos la función de construcción usando las props que llegan al componente
   const buildFreshCatData = useCallback(() => {
@@ -70,10 +91,22 @@ export default function WorkoutForm({ day, categories = [], templateCategories =
 
   // Autosave
   useEffect(() => {
-    if (catData && catData.length > 0) {
-      saveDraftWorkout({ day, categories, templateCategories, catData });
-    }
-  }, [catData, day, categories, templateCategories]);
+  if (catData && catData.length > 0) {
+    saveDraftWorkout({
+      day,
+      categories,
+      templateCategories,
+      workoutStartTime,
+      catData
+    });
+  }
+}, [
+  catData,
+  day,
+  categories,
+  templateCategories,
+  workoutStartTime
+]);
 
   const handleBack = useCallback(() => {
     clearDraftWorkout();
@@ -141,26 +174,53 @@ export default function WorkoutForm({ day, categories = [], templateCategories =
     if (saveWorkout(workout)) clearDraftWorkout();
     setTimeout(() => { setSaving(false); onSave(workout); }, detected.length > 0 ? 2200 : 350);
   }, [saving, catData, day, onSave]);
+  const formatTime = (seconds) => {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+
+  return [
+    hours,
+    minutes,
+    secs
+  ]
+    .map((n) => String(n).padStart(2, "0"))
+    .join(":");
+};
 
   return (
   <div className="screen">
     {/* Topbar */}
-    <div className="topbar">
-      <button type="button" className="back-btn" onClick={onBack}>
-        <ChevronLeft size={20} />
-      </button>
-      <div className="topbar-title">
-        <span className="step-label">{day || "Entrenamiento"}</span>
-        <h2>Registrar Series</h2>
-      </div>
-      <button
-        type="button"
-        className={`wf-save-btn ${saving ? "wf-save-btn--done" : ""}`}
-        onClick={handleSave}
-      >
-        <CheckCircle2 size={22} />
-      </button>
-    </div>
+<div className="topbar">
+  <button type="button" className="back-btn" onClick={onBack}>
+    <ChevronLeft size={20} />
+  </button>
+
+  <div className="topbar-title">
+    <span className="step-label">{day || "Entrenamiento"}</span>
+    <h2>Entrenamiento en curso</h2>
+
+    <span
+      style={{
+        fontSize: "0.85rem",
+        color: "#a855f7",
+        fontWeight: "600",
+        marginTop: "4px",
+        display: "block",
+      }}
+    >
+      ⏱ {formatTime(elapsedTime)}
+    </span>
+  </div>
+
+  <button
+    type="button"
+    className={`wf-save-btn ${saving ? "wf-save-btn--done" : ""}`}
+    onClick={handleSave}
+  >
+    <CheckCircle2 size={22} />
+  </button>
+</div>
 
     {/* Formulario scrollable */}
     <div className="form-scroll" style={{ paddingTop: 12 }}>
