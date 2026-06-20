@@ -35,7 +35,7 @@ export default function WorkoutForm({ day, categories = [], templateCategories =
   const [prResults, setPrResults] = useState([]);
   const [elapsedTime, setElapsedTime] = useState(0);
 
-  const [resting, setResting] = useState(false);
+  const [restEndTime, setRestEndTime] = useState(null);
   const [restRemaining, setRestRemaining] = useState(0);
   console.log("Inicio del entrenamiento:", workoutStartTime);
   useEffect(() => {
@@ -57,6 +57,28 @@ export default function WorkoutForm({ day, categories = [], templateCategories =
 
   return () => clearInterval(interval);
 }, [workoutStartTime]);
+
+useEffect(() => {
+  const savedRest = localStorage.getItem("treino_rest_timer");
+
+  if (!savedRest) return;
+
+  try {
+    const { endTime } = JSON.parse(savedRest);
+
+    // Si el descanso todavía no termina, lo recuperamos
+    if (endTime > Date.now()) {
+      setRestEndTime(endTime);
+
+      toast.info("⏳ Descanso recuperado");
+    } else {
+      // Si ya pasó, limpiamos basura
+      localStorage.removeItem("treino_rest_timer");
+    }
+  } catch {
+    localStorage.removeItem("treino_rest_timer");
+  }
+}, []); 
 
   // Definimos la función de construcción usando las props que llegan al componente
   const buildFreshCatData = useCallback(() => {
@@ -113,29 +135,39 @@ export default function WorkoutForm({ day, categories = [], templateCategories =
   workoutStartTime
 ]);
 useEffect(() => {
-  if (!resting) return;
+  if (!restEndTime) return;
 
-  const interval = setInterval(() => {
-    setRestRemaining((prev) => {
-      if (prev <= 1) {
-        clearInterval(interval);
-        setResting(false);
+  const updateRestTimer = () => {
+    const remaining = Math.ceil(
+      (restEndTime - Date.now()) / 1000
+    );
 
-        toast.success("🔥 Descanso terminado");
+    if (remaining <= 0) {
+      setRestRemaining(0);
+      setRestEndTime(null);
 
-        if ("vibrate" in navigator) {
-          navigator.vibrate([300, 200, 300]);
-        }
+      localStorage.removeItem("treino_rest_timer");
 
-        return 0;
+      toast.success("🔥 Descanso terminado");
+
+      if ("vibrate" in navigator) {
+        navigator.vibrate([300, 200, 300]);
       }
 
-      return prev - 1;
-    });
-  }, 1000);
+      return;
+    }
+
+    setRestRemaining(remaining);
+  };
+
+  // Actualizar inmediatamente
+  updateRestTimer();
+
+  // Luego cada segundo
+  const interval = setInterval(updateRestTimer, 1000);
 
   return () => clearInterval(interval);
-}, [resting]);
+}, [restEndTime]);
 
   const handleBack = useCallback(() => {
     clearDraftWorkout();
@@ -145,9 +177,27 @@ useEffect(() => {
   const startRestTimer = useCallback(() => {
   const seconds = profile?.rest_time_seconds || 120;
 
-  setRestRemaining(seconds);
-  setResting(true);
+  const endTime = Date.now() + seconds * 1000;
+
+  setRestEndTime(endTime);
+
+  localStorage.setItem(
+    "treino_rest_timer",
+    JSON.stringify({
+      endTime,
+    })
+  );
+
+  toast.info(`⏳ Descanso iniciado: ${formatRestTime(seconds)}`);
 }, [profile]);
+const cancelRestTimer = useCallback(() => {
+  setRestEndTime(null);
+  setRestRemaining(0);
+
+  localStorage.removeItem("treino_rest_timer");
+
+  toast.info("❌ Descanso cancelado");
+}, []);
 
 
   // ── Mutadores de estado ────────────────────────────────
@@ -338,18 +388,14 @@ const formatRestTime = (seconds) => {
                   <button
   type="button"
   className="wf-rest-btn"
-  onClick={() => {
-    setRestRemaining(profile?.rest_time_seconds || 120);
-    setResting(true);
-  }}
-  disabled={resting}
+  onClick={restEndTime ? cancelRestTimer : startRestTimer}
 >
-  {resting
-    ? `⏳ Descansando ${formatRestTime(restRemaining)}`
-    : `⏱ Descansar ${formatRestTime(profile?.rest_time_seconds || 120)}`}
+  {restEndTime
+  ? `❌ Cancelar (${formatRestTime(restRemaining)})`
+  : `⏱ Descansar ${formatRestTime(profile?.rest_time_seconds || 120)}`}
 </button>
                 </div>
-              ))}
+              ))} 
 
               {/* Botón de "Añadir ejercicio" debajo de cada sección */}
               <button
