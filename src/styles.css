@@ -1141,3 +1141,69 @@ input[type=number] { -moz-appearance: textfield; }
   opacity: 0.8;
   cursor: default;
 }
+
+.wf-add-category-btn {
+  width: calc(100% - 24px);
+  margin: 16px 12px;
+  height: 52px;
+  border: 1px dashed #7c3aed;
+  background: transparent;
+  color: #a855f7;
+  border-radius: 16px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.wf-add-category-btn:hover {
+  background: rgba(124, 58, 237, 0.15);
+}
+.wf-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.wf-modal {
+  width: 90%;
+  max-width: 360px;
+  background: #1e1e24;
+  border: 1px solid #333;
+  border-radius: 18px;
+  padding: 20px;
+}
+
+.wf-modal h3 {
+  margin: 0 0 15px;
+  color: white;
+}
+
+.wf-modal-input {
+  width: 100%;
+  padding: 12px;
+  background: #111118;
+  color: white;
+  border: 1px solid #444;
+  border-radius: 12px;
+  margin-bottom: 15px;
+}
+
+.wf-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.wf-modal-actions button {
+  background: #7c3aed;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+}

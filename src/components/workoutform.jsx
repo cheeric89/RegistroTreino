@@ -35,6 +35,9 @@ export default function WorkoutForm({ day, categories = [], templateCategories =
   const [prResults, setPrResults] = useState([]);
   const [elapsedTime, setElapsedTime] = useState(0);
 
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+
   const [restEndTime, setRestEndTime] = useState(null);
   const [restRemaining, setRestRemaining] = useState(0);
   console.log("Inicio del entrenamiento:", workoutStartTime);
@@ -208,6 +211,28 @@ const cancelRestTimer = useCallback(() => {
     setCatData((prev) => prev.map((c, i) => 
       i === ci ? { ...c, exercises: [...c.exercises, { name: "", sets: [newSet()] }] } : c
     )), []);
+    const addCategory = useCallback(() => {
+  const name = newCategoryName.trim();
+
+  if (!name) return;
+
+  setCatData((prev) => [
+    ...prev,
+    {
+      name,
+      expanded: true,
+      exercises: [
+        {
+          name: "",
+          sets: [newSet()]
+        }
+      ]
+    }
+  ]);
+
+  setNewCategoryName("");
+  setShowCategoryModal(false);
+}, [newCategoryName]);
 
   const removeExercise = useCallback((ci, ei) =>
     setCatData((prev) => prev.map((c, i) => 
@@ -410,6 +435,47 @@ const formatRestTime = (seconds) => {
         </div>
       ))}
     </div>
+    <button
+  type="button"
+  className="wf-add-category-btn"
+  onClick={() => setShowCategoryModal(true)}
+>
+  ➕ Añadir grupo muscular
+</button>
+{showCategoryModal && (
+  <div className="wf-modal-overlay">
+    <div className="wf-modal">
+      <h3>Nuevo grupo muscular</h3>
+
+      <input
+        type="text"
+        value={newCategoryName}
+        onChange={(e) => setNewCategoryName(e.target.value)}
+        placeholder="Ej: Abdomen"
+        className="wf-modal-input"
+      />
+
+      <div className="wf-modal-actions">
+        <button
+          type="button"
+          onClick={() => {
+            setShowCategoryModal(false);
+            setNewCategoryName("");
+          }}
+        >
+          Cancelar
+        </button>
+
+        <button
+          type="button"
+          onClick={addCategory}
+        >
+          Crear
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
     {/* Footer */}
     <div className="sticky-footer">
