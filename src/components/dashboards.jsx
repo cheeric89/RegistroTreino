@@ -5,7 +5,7 @@
 import { Dumbbell, Zap, TrendingUp, Calendar } from "lucide-react";
 import { getRecentWorkouts, deleteWorkout } from "../utils/storage"; // <--- AQUÍ ESTÁ EL CAMBIO
 
-export default function Dashboard({ onStart }) {
+export default function Dashboard({ onStart, onOpenWorkout }) {
   const recent = getRecentWorkouts(3);
 
   return (
@@ -48,7 +48,17 @@ export default function Dashboard({ onStart }) {
     </div>
     <div className="recent-list">
       {recent.map((w, i) => (
-        <div key={i} className="recent-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div 
+  key={i}
+  className="recent-card"
+  onClick={() => onOpenWorkout(w)}
+  style={{
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    cursor: "pointer"
+  }}
+>
           <div className="recent-card-left">
             <span className="recent-day">{w.day}</span>
             <span className="recent-date">{w.date}</span>
@@ -61,11 +71,11 @@ export default function Dashboard({ onStart }) {
           {/* Botón de eliminar */}
           {/* Botón de eliminar */}
           <button 
-            onClick={() => {
-              // Si tus datos tienen timestamp, pasa w.timestamp
-              deleteWorkout(w.timestamp); 
-              window.location.reload();
-            }}
+            onClick={(e) => {
+  e.stopPropagation();
+  deleteWorkout(w.timestamp);
+  window.location.reload();
+}}
             style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#ff4d4d' }}
           >
             🗑️

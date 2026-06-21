@@ -29,6 +29,7 @@ import CategorySelector from "./components/categoryselector";
 import WorkoutForm from "./components/workoutform";
 import WorkoutSummary from "./components/workoutsummary";
 import ProfileView from "./components/profile/ProfileView";
+import WorkoutDetail from "./components/WorkoutDetail";
 // ── Componentes temporales (Evitan que Vite explote mientras regresa Claude) ──
 
 
@@ -49,7 +50,6 @@ const ProgressScreen = ({ onBack }) => (
 
 const OnboardingModal = () => null;
 
-// ── Views ──────────────────────────────────────────────────
 const VIEWS = {
   AUTH: "auth",
   DASHBOARD: "dashboards",
@@ -59,10 +59,8 @@ const VIEWS = {
   WORKOUT_FORM: "workout_form",
   SUMMARY: "summary",
   PROGRESS: "progress",
-  PROFILE: "profile", // FIX: faltaba esta clave — el botón de Perfil llamaba
-                       // a navigate(VIEWS.PROFILE), que antes era `undefined`.
-                       // "Funcionaba" solo porque view también quedaba
-                       // undefined y la comparación coincidía por accidente.
+  PROFILE: "profile",
+  WORKOUT_DETAIL: "workout_detail",
 };
 
 export default function App() {
@@ -76,6 +74,8 @@ export default function App() {
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [savedWorkout, setSavedWorkout] = useState(null);
   const [workoutStartTime, setWorkoutStartTime] = useState(null);
+  const [selectedWorkout, setSelectedWorkout] = useState(null);
+  
   useEffect(() => {
   const draft = getDraftWorkout();
 
@@ -143,6 +143,11 @@ export default function App() {
     setSavedWorkout(workout);
     navigate(VIEWS.SUMMARY);
   };
+
+  const handleOpenWorkout = (workout) => {
+  setSelectedWorkout(workout);
+  navigate(VIEWS.WORKOUT_DETAIL);
+};
 
   const handleReset = () => {
   setSelectedDay(null);
@@ -242,8 +247,16 @@ export default function App() {
         {/* Dashboard */}
 {view === VIEWS.DASHBOARD && (
   <Dashboard 
-    onStart={handleStart} 
-    onProgress={() => navigate(VIEWS.PROGRESS)} 
+    onStart={handleStart}
+    onProgress={() => navigate(VIEWS.PROGRESS)}
+    onOpenWorkout={handleOpenWorkout}
+  />
+)}
+
+{view === VIEWS.WORKOUT_DETAIL && (
+  <WorkoutDetail 
+    workout={selectedWorkout}
+    onBack={() => navigate(VIEWS.DASHBOARD)}
   />
 )}
 

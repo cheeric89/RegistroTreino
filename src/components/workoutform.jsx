@@ -270,22 +270,68 @@ const cancelRestTimer = useCallback(() => {
   }, [catData]);
 
   const handleSave = useCallback((e) => {
-    e?.preventDefault();
-    if (saving) return;
-    setSaving(true);
-    const detected = [];
-    catData.forEach(cat => {
-      cat.exercises.forEach(ex => {
-        if (!ex.name?.trim()) return;
+  e?.preventDefault();
+
+  if (saving) return;
+  setSaving(true);
+
+  const detected = [];
+
+  let totalVolume = 0;
+
+  catData.forEach(cat => {
+    cat.exercises.forEach(ex => {
+
+      // Detectar PRs
+      if (ex.name?.trim()) {
         const status = getPRStatus(ex.name, ex.sets ?? []);
-        if (status.isPR) detected.push({ exerciseName: ex.name, status });
+
+        if (status.isPR) {
+          detected.push({
+            exerciseName: ex.name,
+            status
+          });
+        }
+      }
+
+      // Calcular volumen
+      ex.sets.forEach(set => {
+        const weight = Number(set.weight);
+        const reps = Number(set.reps);
+
+        if (!isNaN(weight) && !isNaN(reps)) {
+          totalVolume += weight * reps;
+        }
       });
+
     });
-    setPrResults(detected);
-    const workout = { day, date: new Date().toLocaleDateString("es-CL"), timestamp: Date.now(), exercises: catData, categories: catData.map(c => c.name) };
-    if (saveWorkout(workout)) clearDraftWorkout();
-    setTimeout(() => { setSaving(false); onSave(workout); }, detected.length > 0 ? 2200 : 350);
-  }, [saving, catData, day, onSave]);
+  });
+
+  setPrResults(detected);
+
+  const workout = {
+    day,
+    date: new Date().toLocaleDateString("es-CL"),
+    timestamp: Date.now(),
+
+    duration: elapsedTime,
+    volume: totalVolume,
+
+    exercises: catData,
+    categories: catData.map(c => c.name),
+  };
+
+
+  if (saveWorkout(workout)) {
+    clearDraftWorkout();
+  }
+
+  setTimeout(() => {
+    setSaving(false);
+    onSave(workout);
+  }, detected.length > 0 ? 2200 : 350);
+
+}, [saving, catData, day, elapsedTime, onSave]);
 const formatTime = (seconds) => {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
