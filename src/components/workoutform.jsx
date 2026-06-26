@@ -1,3 +1,5 @@
+//src/components/workoutform.jsx
+
 import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { ChevronLeft, Plus, Trash2, CheckCircle2, Check } from "lucide-react";
 import { toast } from "sonner";
@@ -29,7 +31,7 @@ const initCategory = (name, presetExercises = null) => ({
     : [{ name: "Ejercicio 1", sets: [newSet()] }],
 });
 
-export default function WorkoutForm({ day, categories = [], templateCategories = [], workoutStartTime, onSave, onBack }) {
+export default function WorkoutForm({ day, categories = [], templateCategories = [], initialWorkout = null, repeatWorkout = null, workoutStartTime, onSave, onBack }) {
   const { profile } = useProfile();
   const [saving, setSaving] = useState(false);
   const [prResults, setPrResults] = useState([]);
@@ -94,13 +96,33 @@ useEffect(() => {
 
   // Inicializamos el estado principal
   const [catData, setCatData] = useState(() => {
-    const draft = getDraftWorkout();
-    return draft?.catData?.length > 0 ? draft.catData : buildFreshCatData();
-  });
+  const draft = getDraftWorkout();
+
+  // 1. Si existe un borrador, siempre tiene prioridad
+  if (draft?.catData?.length > 0) {
+    return draft.catData;
+  }
+
+  // 2. Si venimos desde "Repetir entrenamiento"
+  if (initialWorkout?.exercises?.length > 0) {
+    return initialWorkout.exercises.map(category => ({
+      name: category.name,
+      expanded: true,
+      exercises: category.exercises.map(ex => ({
+        name: ex.name,
+        sets: ex.sets.map(() => newSet())
+      }))
+    }));
+  }
+
+  // 3. Entrenamiento completamente nuevo
+  return buildFreshCatData();
+});
 
   // Aviso de recuperación de borrador
   useEffect(() => {
     const draft = getDraftWorkout();
+    if (repeatWorkout) return;
     if (draft?.catData?.length > 0) {
       toast.info("💪 Entrenamiento recuperado", {
   description: `Continuamos tu sesión del ${draft.day}. Puedes seguir donde lo dejaste o descartarla.`,
@@ -117,7 +139,7 @@ useEffect(() => {
   }
 });
     }
-  }, [buildFreshCatData]);
+  }, [buildFreshCatData, repeatWorkout]);
 
   // Autosave
   useEffect(() => {

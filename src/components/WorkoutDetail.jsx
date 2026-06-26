@@ -1,6 +1,6 @@
 import { ChevronLeft, Clock, Dumbbell } from "lucide-react";
 
-export default function WorkoutDetail({ workout, onBack }) {
+export default function WorkoutDetail({ workout, onBack, onRepeat }) {
   if (!workout) return null;
 
   const formatDuration = (seconds) => {
@@ -40,8 +40,6 @@ export default function WorkoutDetail({ workout, onBack }) {
 
 
       <div className="form-scroll">
-
-        {/* Resumen */}
 <div
   style={{
     background: "#1e1e24",
@@ -145,6 +143,47 @@ export default function WorkoutDetail({ workout, onBack }) {
       </small>
     </div>
   </div>
+  <div
+  style={{
+    marginTop: "28px",
+    padding: "22px",
+    background: "linear-gradient(135deg, #1f1b2e, #2b2342)",
+    border: "1px solid rgba(168,85,247,.25)",
+    borderRadius: "18px",
+    textAlign: "center",
+  }}
+>
+  <h3
+    style={{
+      color: "#fff",
+      marginBottom: "8px",
+      fontSize: "1.2rem",
+    }}
+  >
+    🔄 Repetir entrenamiento
+  </h3>
+
+  <p
+    style={{
+      color: "#9ca3af",
+      fontSize: ".92rem",
+      lineHeight: "1.5",
+      marginBottom: "18px",
+    }}
+  >
+    Crea una nueva sesión usando esta misma rutina.
+    Se copiarán los ejercicios y las series, pero no los pesos ni las repeticiones.
+  </p>
+
+  <button
+    className="cta-button"
+    onClick={() => onRepeat(workout)}
+      // luego irá la lógica
+    
+  >
+    Repetir entrenamiento
+  </button>
+</div>
 </div>
 
 

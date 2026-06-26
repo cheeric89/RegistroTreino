@@ -13,7 +13,7 @@
 // que el espacio real disponible (el header y el padding del <main> ya
 // habían consumido parte de ese espacio) y .form-scroll terminaba
 // colapsado a 0 mientras el footer (flex-shrink:0) seguía visible.
-
+import { clearDraftWorkout } from "./utils/storage";
 import { useState, useEffect } from "react";
 import { getDraftWorkout } from "./utils/storage";
 import { useAuth } from "./contexts/AuthContext";
@@ -62,7 +62,6 @@ const VIEWS = {
   PROFILE: "profile",
   WORKOUT_DETAIL: "workout_detail",
 };
-
 export default function App() {
   const { user, loading } = useAuth();
   
@@ -75,6 +74,7 @@ export default function App() {
   const [savedWorkout, setSavedWorkout] = useState(null);
   const [workoutStartTime, setWorkoutStartTime] = useState(null);
   const [selectedWorkout, setSelectedWorkout] = useState(null);
+  const [repeatWorkout, setRepeatWorkout] = useState(null);
   
   useEffect(() => {
   const draft = getDraftWorkout();
@@ -109,6 +109,16 @@ export default function App() {
   navigate(VIEWS.TEMPLATE_SELECTOR);
   };
 
+  const handleRepeatWorkout = (workout) => {
+  clearDraftWorkout(); // 👈 importante
+
+  setRepeatWorkout(workout);
+  setSelectedDay(workout.day);
+  setWorkoutStartTime(Date.now());
+
+  navigate(VIEWS.WORKOUT_FORM);
+};
+
   const handleTemplateSelected = (template) => {
   console.log("TEMPLATE COMPLETO:", JSON.stringify(template, null, 2));
 
@@ -141,6 +151,7 @@ export default function App() {
 
   const handleWorkoutSaved = (workout) => {
     setSavedWorkout(workout);
+    setRepeatWorkout(null);
     navigate(VIEWS.SUMMARY);
   };
 
@@ -257,6 +268,7 @@ export default function App() {
   <WorkoutDetail 
     workout={selectedWorkout}
     onBack={() => navigate(VIEWS.DASHBOARD)}
+    onRepeat={handleRepeatWorkout}
   />
 )}
 
@@ -289,6 +301,8 @@ export default function App() {
     categories={selectedCategories}
     templateCategories={templateCategories || []}
     workoutStartTime={workoutStartTime}
+    initialWorkout={repeatWorkout}
+    repeatWorkout={repeatWorkout}
     onSave={handleWorkoutSaved}
     onBack={() => navigate(VIEWS.CATEGORY_SELECTOR)}
   />

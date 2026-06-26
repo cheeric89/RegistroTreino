@@ -69,12 +69,21 @@ export function useProfile() {
         setSaving(false);
         return { error: null };
       }
+      // 👇 Agrega esto
+      console.log("Usuario:", user);
+      console.log("Actualizando:", {
+        id: user.id,
+        ...updates,
+      });
 
       const { data, error: err } = await supabase
         .from(TABLE)
+        
         .upsert({ id: user.id, ...updates }, { onConflict: "id" })
         .select()
         .single();
+              console.log("Respuesta Supabase:", data);
+      console.log("Error Supabase:", err);
 
       setSaving(false);
 
@@ -88,6 +97,9 @@ export function useProfile() {
     },
     [user, profile]
   );
+  // 👇 Y esto también
+
+
 
   return { profile, loading, saving, error, fetchProfile, saveProfile };
 }
