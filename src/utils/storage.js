@@ -52,6 +52,27 @@ export function deleteWorkout(timestamp) {
   }
 }
 
+/** Devuelve la última vez que se realizó un ejercicio */
+export function getLastExercisePerformance(exerciseName) {
+  const workouts = getAllWorkouts();
+
+  for (const workout of workouts) {
+    for (const category of workout.exercises || []) {
+      for (const exercise of category.exercises || []) {
+        if (
+          exercise.name &&
+          exercise.name.trim().toLowerCase() ===
+            exerciseName.trim().toLowerCase()
+        ) {
+          return exercise.sets;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
 // ── Persistencia de BORRADOR (entrenamiento en progreso) ───────────
 // A diferencia de getAllWorkouts/saveWorkout (que guardan sesiones YA
 // finalizadas), esto guarda el estado EN VIVO del formulario para que
@@ -119,4 +140,23 @@ export function saveLocalProfile(profile) {
   } catch {
     return false;
   }
+}
+
+/** Devuelve todos los nombres de ejercicios únicos */
+export function getExerciseSuggestions() {
+  const workouts = getAllWorkouts();
+
+  const names = new Set();
+
+  workouts.forEach((workout) => {
+    (workout.exercises || []).forEach((category) => {
+      (category.exercises || []).forEach((exercise) => {
+        if (exercise.name?.trim()) {
+          names.add(exercise.name.trim());
+        }
+      });
+    });
+  });
+
+  return [...names].sort((a, b) => a.localeCompare(b));
 }

@@ -9,6 +9,8 @@ import {
   saveDraftWorkout,
   getDraftWorkout,
   clearDraftWorkout,
+  getLastExercisePerformance,
+  getExerciseSuggestions,
 } from "../utils/storage";
 import { getProgressionHint, getPRStatus } from "../utils/progressionEngine";
 import ExerciseHint, { PRBadge } from "./ExerciseHint";
@@ -36,6 +38,15 @@ export default function WorkoutForm({ day, categories = [], templateCategories =
   const [saving, setSaving] = useState(false);
   const [prResults, setPrResults] = useState([]);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [exerciseSuggestions] = useState(() => getExerciseSuggestions());
+
+const [activeSuggestions, setActiveSuggestions] = useState({
+  ci: null,
+  ei: null,
+  list: [],
+});
+
+  
 
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -261,10 +272,47 @@ const cancelRestTimer = useCallback(() => {
       i === ci ? { ...c, exercises: c.exercises.filter((_, j) => j !== ei) } : c
     )), []);
 
-  const setExName = useCallback((ci, ei, val) =>
-    setCatData((prev) => prev.map((c, i) => 
-      i === ci ? { ...c, exercises: c.exercises.map((ex, j) => (j === ei ? { ...ex, name: val } : ex)) } : c
-    )), []);
+  const setExName = useCallback((ci, ei, val) => {
+
+  setCatData((prev) =>
+    prev.map((c, i) =>
+      i === ci
+        ? {
+            ...c,
+            exercises: c.exercises.map((ex, j) =>
+              j === ei ? { ...ex, name: val } : ex
+            ),
+          }
+        : c
+    )
+  );
+
+  // Mostrar sugerencias
+  if (val.trim().length >= 2) {
+
+    const matches = exerciseSuggestions
+      .filter(ex =>
+        ex.toLowerCase().includes(val.toLowerCase())
+      )
+      .slice(0, 6);
+
+    setActiveSuggestions({
+      ci,
+      ei,
+      list: matches,
+    });
+
+  } else {
+
+    setActiveSuggestions({
+      ci: null,
+      ei: null,
+      list: [],
+    });
+
+  }
+
+}, [exerciseSuggestions]);
 
   const addSet = useCallback((ci, ei) =>
     setCatData((prev) => prev.map((c, i) => 
@@ -290,6 +338,19 @@ const cancelRestTimer = useCallback(() => {
     });
     return map;
   }, [catData]);
+  const lastPerformances = useMemo(() => {
+  const map = {};
+
+  catData.forEach((cat) => {
+    cat.exercises.forEach((ex) => {
+      if (!ex.name?.trim()) return;
+
+      map[ex.name] = getLastExercisePerformance(ex.name);
+    });
+  });
+
+  return map;
+}, [catData]);
 
   const handleSave = useCallback((e) => {
   e?.preventDefault();
@@ -418,22 +479,81 @@ const formatRestTime = (seconds) => {
             <div className="wf-exercises">
               {cat.exercises.map((ex, ei) => (
                 <div key={ei} className="wf-ex-card">
-                  <div className="wf-ex-name-row">
-                    <input
-                      type="text"
-                      className="wf-ex-name-input"
-                      value={ex.name}
-                      onChange={(e) => setExName(ci, ei, e.target.value)}
-                      placeholder="Nombre del ejercicio"
-                    />
-                    <button
-                      type="button"
-                      className="icon-btn icon-btn--danger"
-                      onClick={() => removeExercise(ci, ei)}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
+                  <div
+  className="wf-ex-name-row"
+  style={{
+    position: "relative",
+  }}
+>
+  <input
+    type="text"
+    className="wf-ex-name-input"
+    value={ex.name}
+    onChange={(e) => setExName(ci, ei, e.target.value)}
+    placeholder="Nombre del ejercicio"
+    autoComplete="off"
+  />
+
+  <button
+    type="button"
+    className="icon-btn icon-btn--danger"
+    onClick={() => removeExercise(ci, ei)}
+  >
+    <Trash2 size={16} />
+  </button>
+
+  {activeSuggestions.ci === ci &&
+    activeSuggestions.ei === ei &&
+    activeSuggestions.list.length > 0 && (
+
+      <div className="wf-suggestions">
+
+        {activeSuggestions.list.map((suggestion) => (
+
+          <button
+            key={suggestion}
+            type="button"
+            className="wf-suggestion-item"
+            onClick={() => {
+
+              setExName(ci, ei, suggestion);
+
+              setActiveSuggestions({
+                ci: null,
+                ei: null,
+                list: [],
+              });
+
+            }}
+          >
+            🏋️ {suggestion}
+          </button>
+
+        ))}
+
+      </div>
+
+  )}
+
+</div>
+                  {lastPerformances[ex.name]?.length > 0 && (
+  <div className="wf-last-session">
+    <span className="wf-last-title">
+      📊 Última sesión
+    </span>
+
+    <div className="wf-last-pills">
+      {lastPerformances[ex.name].map((set, index) => (
+        <span
+          key={index}
+          className="wf-last-pill"
+        >
+          {set.weight || 0} kg × {set.reps || 0}
+        </span>
+      ))}
+    </div>
+  </div>
+)}
                   
                   {/* Encabezados alineados */}
                   <div className="wf-sets-header">
