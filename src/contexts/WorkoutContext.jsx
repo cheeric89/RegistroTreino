@@ -53,6 +53,21 @@ export function WorkoutProvider({ children }) {
     refreshWorkouts();
   }, [refreshWorkouts]);
 
+  useEffect(() => {
+    const handleFocus = () => refreshWorkouts();
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") refreshWorkouts();
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [refreshWorkouts]);
+
   const saveWorkout = useCallback(async (workout) => {
     const timestamp = Number(workout?.timestamp) || Date.now();
     const normalized = { ...workout, timestamp };
