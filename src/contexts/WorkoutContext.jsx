@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useAuth } from "./AuthContext";
 import { useWorkouts } from "../hooks/useWorkouts";
+import { WORKOUT_SAVED_EVENT } from "../utils/storage";
 
 const WorkoutContext = createContext(null);
 
@@ -75,6 +76,16 @@ export function WorkoutProvider({ children }) {
     setSyncError(result.error || null);
     return result;
   }, [persistDelete]);
+
+  useEffect(() => {
+    const handleLocalWorkoutSaved = (event) => {
+      const workout = event?.detail?.workout;
+      if (workout) saveWorkout(workout);
+    };
+
+    window.addEventListener(WORKOUT_SAVED_EVENT, handleLocalWorkoutSaved);
+    return () => window.removeEventListener(WORKOUT_SAVED_EVENT, handleLocalWorkoutSaved);
+  }, [saveWorkout]);
 
   const value = useMemo(() => ({
     workouts,
