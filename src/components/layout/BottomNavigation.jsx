@@ -1,10 +1,10 @@
-import { BarChart3, Dumbbell, Home, UserRound } from "lucide-react";
+import { BarChart3, Dumbbell, Home, User } from "lucide-react";
 
 const ITEMS = [
   { id: "dashboards", label: "Inicio", icon: Home },
   { id: "workout", label: "Entrenar", icon: Dumbbell, action: true },
   { id: "progress", label: "Progreso", icon: BarChart3 },
-  { id: "profile", label: "Perfil", icon: UserRound },
+  { id: "profile", label: "Perfil", icon: User },
 ];
 
 export default function BottomNavigation({ currentView, onNavigate, onStart }) {
