@@ -1,6 +1,7 @@
 {
   "name": "treino-app",
   "version": "1.0.0",
+  "private": true,
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",
     "framer-motion": "^12.40.0",
@@ -17,6 +18,8 @@
     "vite": "^4.4.0"
   },
   "scripts": {
-    "dev": "vite"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   }
 }
