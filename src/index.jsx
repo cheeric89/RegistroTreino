@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { AuthProvider } from "./contexts/AuthContext";
+import { WorkoutProvider } from "./contexts/WorkoutContext";
 import App from "./app";
 import "./styles.css";
 import "./styles/portfolio-core.css";
@@ -17,13 +18,15 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <ThemeProvider>
       <AuthProvider>
-        <Toaster
-          position="top-center"
-          className="treino-toaster"
-          richColors
-          closeButton
-        />
-        <App />
+        <WorkoutProvider>
+          <Toaster
+            position="top-center"
+            className="treino-toaster"
+            richColors
+            closeButton
+          />
+          <App />
+        </WorkoutProvider>
       </AuthProvider>
     </ThemeProvider>
   </React.StrictMode>
