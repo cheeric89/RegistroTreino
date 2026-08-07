@@ -1,56 +1,174 @@
-// utils/storage.js — Capa de persistencia con localStorage
-// Para extender:
-//   - Reemplazar las funciones aquí por llamadas a una API REST
-//     sin tocar ningún componente (solo cambiar este archivo).
-//   - Agregar compresión LZ-string para reducir el tamaño guardado.
-//   - Exportar / importar datos como JSON para backup del usuario.
+// src/utils/storage.js — persistencia local y cache offline-first
 
-const STORAGE_KEY = "treino_workouts";
+const LEGACY_WORKOUTS_KEY = "treino_workouts";
+const ACTIVE_USER_KEY = "treino_active_workout_user";
+const DRAFT_KEY = "treino_workout_draft";
+const PROFILE_KEY = "treino_user_profile";
 
-/** Leer todos los workouts del almacenamiento */
-export function getAllWorkouts() {
+const userWorkoutsKey = (userId) => `treino_workouts:${userId}`;
+const syncQueueKey = (userId) => `treino_workout_sync_queue:${userId}`;
+const migrationKey = (userId) => `treino_workout_legacy_migrated:${userId}`;
+
+const readJSON = (key, fallback) => {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
   } catch {
-    return [];
+    return fallback;
   }
-}
+};
 
-/** Guardar un nuevo workout (prepend para tener el más reciente primero) */
-export function saveWorkout(workout) {
+const writeJSON = (key, value) => {
   try {
-    const all = getAllWorkouts();
-    const workoutToSave = {
-      ...workout,
-      timestamp: workout.timestamp || Date.now(),
-    };
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+};
 
-    const updated = [workoutToSave, ...all];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+const getActiveUserId = () => {
+  try {
+    return localStorage.getItem(ACTIVE_USER_KEY) || null;
+  } catch {
+    return null;
+  }
+};
+
+const resolveWorkoutKey = (userId) => {
+  const resolvedUser = userId || getActiveUserId();
+  return resolvedUser ? userWorkoutsKey(resolvedUser) : LEGACY_WORKOUTS_KEY;
+};
+
+const sortAndDedupeWorkouts = (workouts = []) => {
+  const byTimestamp = new Map();
+
+  workouts.forEach((workout) => {
+    const timestamp = Number(workout?.timestamp);
+    if (!Number.isFinite(timestamp)) return;
+    byTimestamp.set(timestamp, { ...workout, timestamp });
+  });
+
+  return [...byTimestamp.values()].sort((a, b) => b.timestamp - a.timestamp);
+};
+
+export function setActiveWorkoutUser(userId) {
+  try {
+    if (userId) localStorage.setItem(ACTIVE_USER_KEY, userId);
+    else localStorage.removeItem(ACTIVE_USER_KEY);
     return true;
   } catch {
     return false;
   }
 }
 
-/** Obtener los N workouts más recientes para el dashboard */
-export function getRecentWorkouts(n = 5) {
-  return getAllWorkouts().slice(0, n);
+/** Lee los entrenamientos del usuario activo o del cache indicado. */
+export function getAllWorkouts(userId = null) {
+  return sortAndDedupeWorkouts(readJSON(resolveWorkoutKey(userId), []));
 }
 
-/** Eliminar un workout por timestamp */
-export function deleteWorkout(timestamp) {
+/** Historial antiguo previo a la sincronizacion por usuario. */
+export function getLegacyWorkouts() {
+  return sortAndDedupeWorkouts(readJSON(LEGACY_WORKOUTS_KEY, []));
+}
+
+export function clearLegacyWorkouts() {
   try {
-    const filtered = getAllWorkouts().filter((w) => w.timestamp !== timestamp);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+    localStorage.removeItem(LEGACY_WORKOUTS_KEY);
     return true;
   } catch {
     return false;
   }
 }
 
-/** Devuelve las series de la sesión más reciente de un ejercicio */
+/** Reemplaza el cache completo despues de leer Supabase. */
+export function replaceAllWorkouts(workouts, userId = null) {
+  return writeJSON(resolveWorkoutKey(userId), sortAndDedupeWorkouts(workouts));
+}
+
+/** Guardar o actualizar un workout por timestamp. */
+export function saveWorkout(workout, userId = null) {
+  try {
+    const timestamp = Number(workout?.timestamp) || Date.now();
+    const current = getAllWorkouts(userId);
+    const updatedWorkout = { ...workout, timestamp };
+    const withoutSameTimestamp = current.filter((item) => item.timestamp !== timestamp);
+    return replaceAllWorkouts([updatedWorkout, ...withoutSameTimestamp], userId);
+  } catch {
+    return false;
+  }
+}
+
+export function getRecentWorkouts(n = 5, userId = null) {
+  return getAllWorkouts(userId).slice(0, n);
+}
+
+export function deleteWorkout(timestamp, userId = null) {
+  try {
+    const numericTimestamp = Number(timestamp);
+    return replaceAllWorkouts(
+      getAllWorkouts(userId).filter((workout) => workout.timestamp !== numericTimestamp),
+      userId
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Cola de operaciones que no pudieron llegar a Supabase. */
+export function getWorkoutSyncQueue(userId) {
+  if (!userId) return [];
+  return readJSON(syncQueueKey(userId), []);
+}
+
+export function queueWorkoutSyncOperation(userId, operation) {
+  if (!userId || !operation?.type || !Number.isFinite(Number(operation?.timestamp))) {
+    return false;
+  }
+
+  const timestamp = Number(operation.timestamp);
+  const queue = getWorkoutSyncQueue(userId).filter(
+    (item) => Number(item.timestamp) !== timestamp
+  );
+
+  queue.push({
+    ...operation,
+    timestamp,
+    queuedAt: Date.now(),
+  });
+
+  return writeJSON(syncQueueKey(userId), queue);
+}
+
+export function removeWorkoutSyncOperation(userId, timestamp) {
+  if (!userId) return false;
+  const numericTimestamp = Number(timestamp);
+  const queue = getWorkoutSyncQueue(userId).filter(
+    (item) => Number(item.timestamp) !== numericTimestamp
+  );
+  return writeJSON(syncQueueKey(userId), queue);
+}
+
+export function hasMigratedLegacyWorkouts(userId) {
+  if (!userId) return false;
+  try {
+    return localStorage.getItem(migrationKey(userId)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function markLegacyWorkoutsMigrated(userId) {
+  if (!userId) return false;
+  try {
+    localStorage.setItem(migrationKey(userId), "1");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Devuelve las series de la sesion mas reciente de un ejercicio. */
 export function getLastExercisePerformance(exerciseName) {
   const normalizedName = exerciseName?.trim().toLocaleLowerCase("es");
   if (!normalizedName) return null;
@@ -58,9 +176,7 @@ export function getLastExercisePerformance(exerciseName) {
   for (const workout of getAllWorkouts()) {
     for (const category of workout.exercises || []) {
       for (const exercise of category.exercises || []) {
-        if (
-          exercise.name?.trim().toLocaleLowerCase("es") === normalizedName
-        ) {
+        if (exercise.name?.trim().toLocaleLowerCase("es") === normalizedName) {
           return exercise.sets || [];
         }
       }
@@ -71,33 +187,14 @@ export function getLastExercisePerformance(exerciseName) {
 }
 
 // ── Persistencia de BORRADOR (entrenamiento en progreso) ───────────
-const DRAFT_KEY = "treino_workout_draft";
-
-/** Guarda (sobrescribe) el borrador actual del formulario */
 export function saveDraftWorkout(draft) {
-  try {
-    localStorage.setItem(
-      DRAFT_KEY,
-      JSON.stringify({ ...draft, savedAt: Date.now() })
-    );
-    return true;
-  } catch {
-    return false;
-  }
+  return writeJSON(DRAFT_KEY, { ...draft, savedAt: Date.now() });
 }
 
-/** Recupera el borrador guardado, o null si no existe / está corrupto */
 export function getDraftWorkout() {
-  try {
-    const raw = localStorage.getItem(DRAFT_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    localStorage.removeItem(DRAFT_KEY);
-    return null;
-  }
+  return readJSON(DRAFT_KEY, null);
 }
 
-/** Elimina el borrador tras guardarlo o descartarlo */
 export function clearDraftWorkout() {
   try {
     localStorage.removeItem(DRAFT_KEY);
@@ -107,33 +204,18 @@ export function clearDraftWorkout() {
   }
 }
 
-// ── Persistencia LOCAL del perfil (fallback sin conexión) ──────────
-const PROFILE_KEY = "treino_user_profile";
-
-/** Lee el perfil cacheado localmente, o null si no existe */
+// ── Persistencia LOCAL del perfil (fallback sin conexion) ──────────
 export function getLocalProfile() {
-  try {
-    const raw = localStorage.getItem(PROFILE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
+  return readJSON(PROFILE_KEY, null);
 }
 
-/** Sobrescribe el perfil cacheado localmente */
 export function saveLocalProfile(profile) {
-  try {
-    localStorage.setItem(PROFILE_KEY, JSON.stringify(profile || {}));
-    return true;
-  } catch {
-    return false;
-  }
+  return writeJSON(PROFILE_KEY, profile || {});
 }
 
 /**
- * Devuelve ejercicios únicos enriquecidos con su grupo muscular y las
- * series de la sesión más reciente. Como los entrenamientos se guardan
- * del más nuevo al más antiguo, conservamos la primera aparición.
+ * Devuelve ejercicios unicos enriquecidos con su grupo muscular y las
+ * series de la sesion mas reciente del usuario activo.
  */
 export function getExerciseSuggestions() {
   const exercisesMap = new Map();
