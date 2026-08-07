@@ -16,10 +16,20 @@ const sortAndDedupe = (workouts = []) => {
 
 export function WorkoutProvider({ children }) {
   const { user } = useAuth();
-  const dataLayer = useWorkouts();
+  const {
+    fetchWorkouts,
+    saveWorkout: persistWorkout,
+    deleteWorkout: persistDelete,
+    error: dataError,
+  } = useWorkouts();
+
   const [workouts, setWorkouts] = useState([]);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState(null);
+
+  useEffect(() => {
+    setSyncError(dataError || null);
+  }, [dataError]);
 
   const refreshWorkouts = useCallback(async () => {
     if (!user) {
@@ -29,12 +39,14 @@ export function WorkoutProvider({ children }) {
     }
 
     setSyncing(true);
-    const next = await dataLayer.fetchWorkouts();
-    setWorkouts(sortAndDedupe(next));
-    setSyncError(dataLayer.error || null);
-    setSyncing(false);
-    return next;
-  }, [dataLayer, user]);
+    try {
+      const next = await fetchWorkouts();
+      setWorkouts(sortAndDedupe(next));
+      return next;
+    } finally {
+      setSyncing(false);
+    }
+  }, [fetchWorkouts, user]);
 
   useEffect(() => {
     refreshWorkouts();
@@ -48,10 +60,10 @@ export function WorkoutProvider({ children }) {
       sortAndDedupe([normalized, ...current.filter((item) => Number(item.timestamp) !== timestamp)])
     );
 
-    const result = await dataLayer.saveWorkout(normalized);
+    const result = await persistWorkout(normalized);
     setSyncError(result.error || null);
     return result;
-  }, [dataLayer]);
+  }, [persistWorkout]);
 
   const deleteWorkout = useCallback(async (timestamp) => {
     const numericTimestamp = Number(timestamp);
@@ -59,10 +71,10 @@ export function WorkoutProvider({ children }) {
       current.filter((workout) => Number(workout.timestamp) !== numericTimestamp)
     );
 
-    const result = await dataLayer.deleteWorkout(numericTimestamp);
+    const result = await persistDelete(numericTimestamp);
     setSyncError(result.error || null);
     return result;
-  }, [dataLayer]);
+  }, [persistDelete]);
 
   const value = useMemo(() => ({
     workouts,
