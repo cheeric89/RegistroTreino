@@ -6,6 +6,7 @@ import {
   Clock3,
   Dumbbell,
   RotateCcw,
+  Trash2,
   Trophy,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -41,6 +42,7 @@ export default function HistoryPage({
 }) {
   const [workouts, setWorkouts] = useState(() => getAllWorkouts());
   const [activeGroup, setActiveGroup] = useState(initialGroup);
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   const grouped = useMemo(() => groupWorkouts(workouts), [workouts]);
   const groupMeta = getHistoryGroupMeta(activeGroup);
@@ -52,9 +54,7 @@ export default function HistoryPage({
 
   const visibleGroups = useMemo(() => {
     const base = [...HISTORY_GROUPS];
-    if (grouped.other.length > 0) {
-      base.push(getHistoryGroupMeta("other"));
-    }
+    if (grouped.other.length > 0) base.push(getHistoryGroupMeta("other"));
     return base;
   }, [grouped.other.length]);
 
@@ -63,20 +63,18 @@ export default function HistoryPage({
     [groupSessions]
   );
 
-  const handleDelete = (workout) => {
-    const confirmed = window.confirm(
-      `¿Eliminar la sesión ${workout?.day || "guardada"} del ${workout?.date || "historial"}?`
-    );
-    if (!confirmed) return;
+  const confirmDelete = () => {
+    if (!pendingDelete) return;
 
-    if (!deleteWorkout(workout.timestamp)) {
+    if (!deleteWorkout(pendingDelete.timestamp)) {
       toast.error("No se pudo eliminar la sesión");
       return;
     }
 
     setWorkouts((current) =>
-      current.filter((item) => item.timestamp !== workout.timestamp)
+      current.filter((item) => item.timestamp !== pendingDelete.timestamp)
     );
+    setPendingDelete(null);
     toast.success("Sesión eliminada");
   };
 
@@ -239,7 +237,7 @@ export default function HistoryPage({
                       <button
                         type="button"
                         className="history-session-card__delete"
-                        onClick={() => handleDelete(workout)}
+                        onClick={() => setPendingDelete(workout)}
                       >
                         Eliminar
                       </button>
@@ -257,6 +255,35 @@ export default function HistoryPage({
           )}
         </section>
       </div>
+
+      {pendingDelete && (
+        <div className="dialog-backdrop" role="presentation" onMouseDown={() => setPendingDelete(null)}>
+          <div
+            className="confirmation-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="history-delete-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="confirmation-dialog__icon confirmation-dialog__icon--danger">
+              <Trash2 size={22} />
+            </div>
+            <h2 id="history-delete-title">¿Eliminar esta sesión?</h2>
+            <p>
+              Se eliminará “{pendingDelete.day || "Entrenamiento"}” del {pendingDelete.date || "historial"}.
+              Esta acción no se puede deshacer.
+            </p>
+            <div className="confirmation-dialog__actions">
+              <button type="button" className="dialog-button" onClick={() => setPendingDelete(null)}>
+                Cancelar
+              </button>
+              <button type="button" className="dialog-button dialog-button--danger" onClick={confirmDelete}>
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
