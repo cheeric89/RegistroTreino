@@ -109,10 +109,6 @@ export function useWorkouts() {
     return { migrated: true, error: null };
   }, []);
 
-  /**
-   * Supabase es la fuente compartida. localStorage es cache y respaldo offline.
-   * La primera vez, los entrenamientos antiguos del navegador se migran a la cuenta.
-   */
   const fetchWorkouts = useCallback(async () => {
     if (!user) {
       setActiveWorkoutUser(null);
@@ -155,18 +151,17 @@ export function useWorkouts() {
     return remote;
   }, [flushPendingOperations, migrateLegacyWorkouts, user]);
 
-  /** Guardado instantaneo local + upsert remoto. */
   const saveWorkout = useCallback(async (workout) => {
     const normalized = normalizeWorkout(workout);
 
     if (!user) {
-      localSave(normalized);
+      localSave(normalized, null, { emit: false });
       return { error: null, synced: false };
     }
 
     const userId = user.id;
     setActiveWorkoutUser(userId);
-    localSave(normalized, userId);
+    localSave(normalized, userId, { emit: false });
 
     const { error: saveError } = await supabase
       .from(TABLE)
@@ -189,7 +184,6 @@ export function useWorkouts() {
     return { error: null, synced: true };
   }, [user]);
 
-  /** Eliminacion local inmediata + borrado remoto o cola offline. */
   const deleteWorkout = useCallback(async (timestamp) => {
     const numericTimestamp = Number(timestamp);
 
