@@ -1,0 +1,167 @@
+/* ── Récords personales ───────────────────────────────── */
+.prs-list {
+  width: 100%;
+  display: grid;
+  gap: 12px;
+}
+
+.pr-row {
+  min-width: 0;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 95% 0%, rgba(139, 92, 246, 0.12), transparent 9rem),
+    linear-gradient(155deg, rgba(30, 30, 42, 0.98), rgba(18, 18, 25, 0.98));
+  box-shadow: var(--shadow-sm);
+  transition: transform 150ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.pr-row:hover {
+  transform: translateY(-1px);
+  border-color: rgba(139, 92, 246, 0.32);
+}
+
+.pr-row:first-child {
+  border-color: rgba(196, 181, 253, 0.28);
+  background:
+    radial-gradient(circle at 94% 0%, rgba(168, 85, 247, 0.2), transparent 11rem),
+    linear-gradient(150deg, rgba(40, 31, 62, 0.98), rgba(19, 18, 28, 0.98));
+}
+
+.pr-row-rank {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  border: 1px solid rgba(139, 92, 246, 0.22);
+  border-radius: 14px;
+  background: rgba(139, 92, 246, 0.1);
+}
+
+.pr-row:first-child .pr-row-rank {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.28);
+  background: rgba(251, 191, 36, 0.09);
+}
+
+.pr-rank-gold,
+.pr-rank-icon {
+  display: block;
+}
+
+.pr-row-body {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.pr-row-name {
+  overflow: hidden;
+  color: var(--text-1);
+  font-size: 0.98rem;
+  font-weight: 850;
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pr-row-meta {
+  color: var(--text-2);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.pr-row-volume {
+  min-width: 76px;
+  padding: 10px 12px;
+  display: grid;
+  justify-items: end;
+  gap: 1px;
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.028);
+}
+
+.pr-row-volume-num {
+  color: var(--text-1);
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.pr-row-volume-label {
+  color: var(--text-3);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.prs-loading {
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+  color: var(--text-2);
+  border: 1px dashed rgba(139, 92, 246, 0.2);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.018);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.profile-content > .empty-state {
+  margin-top: 0;
+  min-height: 210px;
+  padding: 28px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  color: var(--text-3);
+  border: 1px dashed rgba(139, 92, 246, 0.2);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.profile-content > .empty-state p:first-child {
+  color: var(--text-1);
+  font-weight: 800;
+}
+
+@media (max-width: 560px) {
+  .pr-row {
+    padding: 13px;
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    gap: 10px;
+    border-radius: 15px;
+  }
+
+  .pr-row-rank {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+  }
+
+  .pr-row-name {
+    font-size: 0.82rem;
+  }
+
+  .pr-row-meta {
+    font-size: 0.67rem;
+  }
+
+  .pr-row-volume {
+    min-width: 58px;
+    padding: 8px 9px;
+  }
+
+  .pr-row-volume-num {
+    font-size: 0.84rem;
+  }
+}
