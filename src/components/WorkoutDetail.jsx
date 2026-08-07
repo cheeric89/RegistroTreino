@@ -1,317 +1,84 @@
-import { ChevronLeft, Clock, Dumbbell } from "lucide-react";
+import { ChevronLeft, Clock3, Dumbbell, RotateCcw } from "lucide-react";
+
+const formatDuration = (seconds) => {
+  if (!seconds) return "No disponible";
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  return hours > 0 ? `${hours} h ${minutes} min` : `${minutes} min`;
+};
 
 export default function WorkoutDetail({ workout, onBack, onRepeat }) {
   if (!workout) return null;
 
-  const formatDuration = (seconds) => {
-    if (!seconds) return "No disponible";
-
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-
-    if (hours > 0) {
-      return `${hours}h ${minutes}min`;
-    }
-
-    return `${minutes}min`;
-  };
-
   return (
-    <div className="screen">
-
-      {/* Topbar */}
+    <div className="screen flow-screen workout-detail-screen">
       <div className="topbar">
-        <button
-          type="button"
-          className="back-btn"
-          onClick={onBack}
-        >
+        <button type="button" className="back-btn" onClick={onBack}>
           <ChevronLeft size={20} />
         </button>
-
         <div className="topbar-title">
-          <span className="step-label">
-            Sesión guardada
-          </span>
-
-          <h2>{workout.day}</h2>
+          <span className="step-label">Sesión guardada</span>
+          <h2>{workout.day || "Entrenamiento"}</h2>
         </div>
       </div>
 
-
-      <div className="form-scroll">
-<div
-  style={{
-    background: "#1e1e24",
-    border: "1px solid #333",
-    borderRadius: "16px",
-    padding: "14px 16px",
-    marginBottom: "20px",
-  }}
->
-  {/* Fecha */}
-  <div
-    style={{
-      color: "#888",
-      fontSize: "0.85rem",
-      marginBottom: "10px",
-    }}
-  >
-    {workout.date}
-  </div>
-
-  {/* Estadísticas */}
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-    }}
-  >
-    {/* Duración */}
-    <div
-      style={{
-        flex: 1,
-        textAlign: "center",
-      }}
-    >
-      <Clock size={18} color="#a855f7" />
-
-      <p
-        style={{
-          margin: "10px 0 4px",
-          fontWeight: "800",
-          fontSize: "1.25rem",
-          color: "#ffffff",
-          letterSpacing: "-0.5px",
-        }}
-      >
-        {formatDuration(workout.duration)}
-      </p>
-
-      <small
-        style={{
-          color: "#8b8b9b",
-          fontSize: "0.85rem",
-          letterSpacing: "0.6px",
-          textTransform: "uppercase",
-        }}
-      >
-        DURACIÓN
-      </small>
-    </div>
-
-    {/* Separador */}
-    <div
-      style={{
-        width: "1px",
-        height: "42px",
-        background:
-          "linear-gradient(to bottom, transparent, rgba(168, 85, 247, 0.5), transparent)",
-      }}
-    />
-
-    {/* Volumen */}
-    <div
-      style={{
-        flex: 1,
-        textAlign: "center",
-      }}
-    >
-      <Dumbbell size={18} color="#a855f7" />
-
-      <p
-        style={{
-          margin: "10px 0 4px",
-          fontWeight: "800",
-          fontSize: "1.25rem",
-          color: "#ffffff",
-          letterSpacing: "-0.5px",
-        }}
-      >
-        {workout.volume || 0} kg
-      </p>
-
-      <small
-        style={{
-          color: "#8b8b9b",
-          fontSize: "0.85rem",
-          letterSpacing: "0.6px",
-          textTransform: "uppercase",
-        }}
-      >
-        VOLUMEN
-      </small>
-    </div>
-  </div>
-  <div
-  style={{
-    marginTop: "28px",
-    padding: "22px",
-    background: "linear-gradient(135deg, #1f1b2e, #2b2342)",
-    border: "1px solid rgba(168,85,247,.25)",
-    borderRadius: "18px",
-    textAlign: "center",
-  }}
->
-  <h3
-    style={{
-      color: "#fff",
-      marginBottom: "8px",
-      fontSize: "1.2rem",
-    }}
-  >
-    🔄 Repetir entrenamiento
-  </h3>
-
-  <p
-    style={{
-      color: "#9ca3af",
-      fontSize: ".92rem",
-      lineHeight: "1.5",
-      marginBottom: "18px",
-    }}
-  >
-    Crea una nueva sesión usando esta misma rutina.
-    Se copiarán los ejercicios y las series, pero no los pesos ni las repeticiones.
-  </p>
-
-  <button
-    className="cta-button"
-    onClick={() => onRepeat(workout)}
-      // luego irá la lógica
-    
-  >
-    Repetir entrenamiento
-  </button>
-</div>
-</div>
-
-
-        {/* Ejercicios */}
-        {workout.exercises.map((category, index) => (
-          <div
-            key={index}
-            className="wf-cat-block"
-          >
-            <h3
-  style={{
-    color: "#a855f7",
-    textTransform: "uppercase",
-    letterSpacing: "2px",
-    marginBottom: "16px",
-    marginLeft: "12px",
-    fontSize: "1.15rem",
-    fontWeight: "800",
-    textShadow: "0 0 10px rgba(168, 85, 247, 0.35)",
-  }}
->
-  {category.name}
-</h3>   
-
-
-            {category.exercises.map((exercise, i) => (
-              <div
-                key={i}
-                className="wf-ex-card"
-              >
-                <div
-  style={{
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    marginBottom: "16px",
-  }}
->
-  <div
-    style={{
-      width: "4px",
-      height: "24px",
-      background: "#a855f7",
-      borderRadius: "999px",
-      boxShadow: "0 0 12px rgba(168, 85, 247, 0.7)",
-    }}
-  />
-
-  <span
-    style={{
-      color: "#ffffff",
-      fontSize: "1.15rem",
-      fontWeight: "700",
-      letterSpacing: "0.3px",
-    }}
-  >
-    {exercise.name || "Ejercicio sin nombre"}
-  </span>
-</div>
-
-
-                {exercise.sets.map((set, s) => (
-                  <div
-  key={s}
-  style={{
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: "10px",
-    padding: "10px 14px",
-    background: "#141418",
-    borderRadius: "12px",
-  }}
->
-  <span
-  style={{
-    background: "linear-gradient(135deg, #a855f7, #7c3aed)",
-    color: "white",
-    padding: "6px 12px",
-    borderRadius: "999px",
-    fontSize: "0.78rem",
-    fontWeight: "800",
-    minWidth: "68px",
-    textAlign: "center",
-    boxShadow: "0 0 8px rgba(168, 85, 247, 0.35)",
-    letterSpacing: "0.5px",
-  }}
->
-  Serie {s + 1}
-</span>
-
-  <div
-  style={{
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-  }}
->
-  <span
-    style={{
-      color: "#ffffff",
-      fontSize: "1.05rem",
-      fontWeight: "800",
-    }}
-  >
-    {set.weight || 0} kg
-  </span>
-
-  <span
-    style={{
-      color: "#7c7c8f",
-      fontSize: "0.95rem",
-      fontWeight: "600",
-    }}
-  >
-    × {set.reps || 0} reps
-  </span>
-</div>
-</div>
-                ))}
-
-              </div>
-            ))}
+      <div className="form-scroll workout-detail-content">
+        <section className="workout-detail-hero">
+          <div className="workout-detail-hero__date">{workout.date || "Fecha no disponible"}</div>
+          <div className="workout-detail-stats">
+            <div>
+              <Clock3 size={20} />
+              <strong>{formatDuration(workout.duration)}</strong>
+              <span>Duración</span>
+            </div>
+            <div>
+              <Dumbbell size={20} />
+              <strong>{Math.round(Number(workout.volume) || 0).toLocaleString("es-CL")} kg</strong>
+              <span>Volumen</span>
+            </div>
           </div>
-        ))}
+        </section>
 
+        <section className="repeat-workout-card">
+          <span className="repeat-workout-card__icon"><RotateCcw size={21} /></span>
+          <div>
+            <span className="card-kicker">Usar como base</span>
+            <h2>Repite este entrenamiento</h2>
+            <p>Se copiarán los ejercicios y la cantidad de series para empezar una nueva sesión.</p>
+          </div>
+          <button type="button" className="secondary-action-button" onClick={() => onRepeat(workout)}>
+            Repetir rutina
+          </button>
+        </section>
+
+        <div className="workout-detail-categories">
+          {(workout.exercises || []).map((category, categoryIndex) => (
+            <section key={`${category.name}-${categoryIndex}`} className="workout-detail-category">
+              <header>
+                <span>{String(categoryIndex + 1).padStart(2, "0")}</span>
+                <h2>{category.name || "Grupo muscular"}</h2>
+              </header>
+
+              <div className="workout-detail-exercises">
+                {(category.exercises || []).map((exercise, exerciseIndex) => (
+                  <article key={`${exercise.name}-${exerciseIndex}`} className="workout-detail-exercise">
+                    <h3>{exercise.name || "Ejercicio sin nombre"}</h3>
+                    <div className="workout-detail-sets">
+                      {(exercise.sets || []).map((set, setIndex) => (
+                        <div key={`${setIndex}-${set.weight}-${set.reps}`} className="workout-detail-set-row">
+                          <span>Serie {setIndex + 1}</span>
+                          <strong>{set.weight || 0} kg</strong>
+                          <small>× {set.reps || 0} reps</small>
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
       </div>
-
     </div>
   );
 }

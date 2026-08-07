@@ -1,20 +1,17 @@
-// src/components/templateselector.jsx
-import React from 'react';
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import * as TemplateData from "../data/routineTemplates";
 
 export default function TemplateSelector({ onSelect, onBack }) {
-  // Busca la información en mayúsculas, minúsculas o exportación por defecto
-  const templates = 
-    TemplateData.ROUTINE_TEMPLATES || 
-    TemplateData.routineTemplates || 
-    TemplateData.default || 
+  const templates =
+    TemplateData.ROUTINE_TEMPLATES ||
+    TemplateData.routineTemplates ||
+    TemplateData.default ||
     [];
 
   return (
-    <div className="screen">
+    <div className="screen flow-screen">
       <div className="topbar">
-        <button className="back-btn" onClick={onBack}>
+        <button type="button" className="back-btn" onClick={onBack}>
           <ChevronLeft size={20} />
         </button>
         <div className="topbar-title">
@@ -24,24 +21,25 @@ export default function TemplateSelector({ onSelect, onBack }) {
       </div>
 
       <p className="screen-subtitle">
-        Selecciona una plantilla o crea tu propia sesión
+        Selecciona una plantilla o crea tu propia sesión.
       </p>
 
-      <div className="day-list">
-        {templates.map((t) => (
+      <div className="day-list template-list">
+        {templates.map((template) => (
           <button
-            key={t.id}
-            className="day-card"
-            onClick={() => onSelect(t)}
+            key={template.id}
+            type="button"
+            className="day-card template-card"
+            onClick={() => onSelect(template)}
           >
-            <span style={{ fontSize: 22 }}>{t.emoji || "💪"}</span>
-            <div style={{ flex: 1, textAlign: "left" }}>
-              <div className="day-label">{t.label}</div>
-              <div style={{ fontSize: 12, color: "var(--text-3)", marginTop: 2 }}>
-                {t.description}
-              </div>
-            </div>
-            <ChevronRight size={16} className="day-arrow" />
+            <span className="template-card__icon" aria-hidden="true">
+              {template.emoji || "💪"}
+            </span>
+            <span className="template-card__copy">
+              <span className="day-label">{template.label}</span>
+              <span className="template-card__description">{template.description}</span>
+            </span>
+            <ChevronRight size={17} className="day-arrow" />
           </button>
         ))}
       </div>

@@ -1,28 +1,9 @@
-// src/app.jsx
-// Updated App — adds AUTH + PROGRESS views.
-// All existing workout flow logic is UNTOUCHED.
-// New: reads auth state to guard routes + adds PROGRESS view.
-//
-// FIX (layout móvil/iOS + desktop): el header global y el <main> ahora
-// usan las clases .app-header / .app-main en vez de estilos inline de
-// tamaño. Esto permite que .app-root sea la ÚNICA pieza de la app que
-// declara una unidad de viewport (ver styles.css) y que todo lo demás
-// herede su altura real vía flexbox. Antes, .screen (dentro de
-// WorkoutForm y el resto de vistas) volvía a pedir 100dvh por su cuenta,
-// lo que hacía que el contenido se calculara con una altura más grande
-// que el espacio real disponible (el header y el padding del <main> ya
-// habían consumido parte de ese espacio) y .form-scroll terminaba
-// colapsado a 0 mientras el footer (flex-shrink:0) seguía visible.
-import { clearDraftWorkout } from "./utils/storage";
-import { useState, useEffect } from "react";
-import { getDraftWorkout } from "./utils/storage";
+import { useEffect, useState } from "react";
 import { useAuth } from "./contexts/AuthContext";
-import AuthScreen from "./components/auth/AuthScreen"; // Asegúrate de importar tu componente
-
-
-// ── Existing components (unchanged) ───────────────────────
-import * as DashboardModule from "./components/dashboards";
-const Dashboard = DashboardModule.Dashboard || DashboardModule.default || (() => null);
+import { useProfile } from "./hooks/useProfile";
+import { clearDraftWorkout, getDraftWorkout } from "./utils/storage";
+import AuthScreen from "./components/auth/AuthScreen";
+import Dashboard from "./components/dashboards";
 import DaySelector from "./components/dayselector";
 import TemplateSelector from "./components/templateselector";
 import CategorySelector from "./components/categoryselector";
@@ -30,28 +11,12 @@ import WorkoutForm from "./components/workoutform";
 import WorkoutSummary from "./components/workoutsummary";
 import ProfileView from "./components/profile/ProfileView";
 import WorkoutDetail from "./components/WorkoutDetail";
-// ── Componentes temporales (Evitan que Vite explote mientras regresa Claude) ──
-
-
-const ProgressScreen = ({ onBack }) => (
-  <div style={{ color: "white", padding: "40px 20px", textAlign: "center", maxWidth: "500px", margin: "0 auto" }}>
-    <h2 style={{ fontSize: "24px", marginBottom: "10px" }}>📈 Panel de Progreso</h2>
-    <p style={{ color: "#aaa", marginBottom: "30px" }}>
-      ¡Aquí Claude construirá tus gráficas de Recharts y el calendario de rachas en el Módulo 4!
-    </p>
-    <button 
-      onClick={onBack} 
-      style={{ background: "#374151", color: "white", border: "none", padding: "10px 20px", borderRadius: "6px", cursor: "pointer", fontWeight: "semibold" }}
-    >
-      Volver al Dashboard
-    </button>
-  </div>
-);
-
-const OnboardingModal = () => null;
+import ProgressPage from "./components/ProgressPage";
+import AppHeader from "./components/layout/AppHeader";
+import BottomNavigation from "./components/layout/BottomNavigation";
+import BrandLogo from "./components/layout/BrandLogo";
 
 const VIEWS = {
-  AUTH: "auth",
   DASHBOARD: "dashboards",
   TEMPLATE_SELECTOR: "template_selector",
   DAY_SELECTOR: "day_selector",
@@ -62,11 +27,17 @@ const VIEWS = {
   PROFILE: "profile",
   WORKOUT_DETAIL: "workout_detail",
 };
+
+const CHROME_VIEWS = new Set([
+  VIEWS.DASHBOARD,
+  VIEWS.PROGRESS,
+  VIEWS.PROFILE,
+]);
+
 export default function App() {
   const { user, loading } = useAuth();
-  
+  const { profile } = useProfile();
   const [view, setView] = useState(VIEWS.DASHBOARD);
-  const [isGuest, setIsGuest] = useState(false); // <-- Controla el acceso de invitado de forma segura
   const [selectedDay, setSelectedDay] = useState(null);
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [templateCategories, setTemplateCategories] = useState([]);
@@ -75,79 +46,62 @@ export default function App() {
   const [workoutStartTime, setWorkoutStartTime] = useState(null);
   const [selectedWorkout, setSelectedWorkout] = useState(null);
   const [repeatWorkout, setRepeatWorkout] = useState(null);
-  
-  useEffect(() => {
-  const draft = getDraftWorkout();
 
-  if (draft?.catData?.length > 0) {
+  useEffect(() => {
+    const draft = getDraftWorkout();
+    if (!draft?.catData?.length) return;
+
     setSelectedDay(draft.day || null);
     setSelectedCategories(draft.categories || []);
     setTemplateCategories(draft.templateCategories || []);
-    setWorkoutStartTime(draft.workoutStartTime || null);
-
-    // Volver directamente al entrenamiento
+    setWorkoutStartTime(draft.workoutStartTime || Date.now());
     setView(VIEWS.WORKOUT_FORM);
-  }
-}, []);
+  }, []);
 
   const navigate = (nextView) => setView(nextView);
-  const formatTime = (seconds) => {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
 
-  if (hours > 0) {
-    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-  }
-
-  return `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-};
-
-  // ── Handlers ───────────────────────────────────────────
   const handleStart = () => {
-  setWorkoutStartTime(Date.now());
-  navigate(VIEWS.TEMPLATE_SELECTOR);
+    setRepeatWorkout(null);
+    setSelectedTemplate(null);
+    setTemplateCategories([]);
+    setSelectedCategories([]);
+    setWorkoutStartTime(Date.now());
+    navigate(VIEWS.TEMPLATE_SELECTOR);
   };
 
   const handleRepeatWorkout = (workout) => {
-  clearDraftWorkout(); // 👈 importante
-
-  setRepeatWorkout(workout);
-  setSelectedDay(workout.day);
-  setWorkoutStartTime(Date.now());
-
-  navigate(VIEWS.WORKOUT_FORM);
-};
+    clearDraftWorkout();
+    setRepeatWorkout(workout);
+    setSelectedWorkout(workout);
+    setSelectedDay(workout.day || "Entrenamiento");
+    setSelectedCategories(workout.categories || []);
+    setTemplateCategories(workout.exercises || []);
+    setWorkoutStartTime(Date.now());
+    navigate(VIEWS.WORKOUT_FORM);
+  };
 
   const handleTemplateSelected = (template) => {
-  console.log("TEMPLATE COMPLETO:", JSON.stringify(template, null, 2));
-
-  setSelectedTemplate(template);
-
-  // Guarda las categorías de la plantilla elegida
-  setTemplateCategories(template.categories || []);
-
-  navigate(VIEWS.DAY_SELECTOR);
-};
+    setSelectedTemplate(template);
+    setTemplateCategories(template.categories || []);
+    navigate(VIEWS.DAY_SELECTOR);
+  };
 
   const handleDaySelected = (day) => {
-  setSelectedDay(day);
+    setSelectedDay(day);
+    setWorkoutStartTime(Date.now());
 
-  // NUEVO: iniciar la sesión de entrenamiento
-  setWorkoutStartTime(Date.now());
+    if (selectedTemplate && selectedTemplate.id !== "custom") {
+      navigate(VIEWS.WORKOUT_FORM);
+      return;
+    }
 
-  if (selectedTemplate && selectedTemplate.id !== "custom") {
-    navigate(VIEWS.WORKOUT_FORM);
-  } else {
     navigate(VIEWS.CATEGORY_SELECTOR);
-  }
-};
+  };
 
-  const handleCategoriesConfirmed = (cats) => {
-  console.log("DEBUG: Cats recibidos en App.jsx:", cats); // <--- ESTO NOS DIRÁ SI EL PROBLEMA VIENE DEL SELECTOR
-  setSelectedCategories(cats);
-  navigate(VIEWS.WORKOUT_FORM);
-};
+  const handleCategoriesConfirmed = (categories) => {
+    setSelectedCategories(categories);
+    navigate(VIEWS.WORKOUT_FORM);
+  };
 
   const handleWorkoutSaved = (workout) => {
     setSavedWorkout(workout);
@@ -156,172 +110,129 @@ export default function App() {
   };
 
   const handleOpenWorkout = (workout) => {
-  setSelectedWorkout(workout);
-  navigate(VIEWS.WORKOUT_DETAIL);
-};
+    setSelectedWorkout(workout);
+    navigate(VIEWS.WORKOUT_DETAIL);
+  };
 
   const handleReset = () => {
-  setSelectedDay(null);
-  setSelectedCategories([]);
-  setTemplateCategories([]);
-  setSelectedTemplate(null);
-  setSavedWorkout(null);
-  setWorkoutStartTime(null);
-  navigate(VIEWS.DASHBOARD);
-};
+    setSelectedDay(null);
+    setSelectedCategories([]);
+    setTemplateCategories([]);
+    setSelectedTemplate(null);
+    setSavedWorkout(null);
+    setSelectedWorkout(null);
+    setRepeatWorkout(null);
+    setWorkoutStartTime(null);
+    navigate(VIEWS.DASHBOARD);
+  };
 
-  // ── Auth loading splash ────────────────────────────────
+  const handleWorkoutBack = () => {
+    if (repeatWorkout) {
+      navigate(VIEWS.DASHBOARD);
+      return;
+    }
+
+    if (selectedTemplate && selectedTemplate.id !== "custom") {
+      navigate(VIEWS.DAY_SELECTOR);
+      return;
+    }
+
+    navigate(VIEWS.CATEGORY_SELECTOR);
+  };
+
   if (loading) {
     return (
-      <div className="app-root" style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "#121214" }}>
-        <div style={{
-          width: 40,
-          height: 40,
-          borderRadius: "50%",
-          border: "3px solid #374151",
-          borderTopColor: "#a855f7",
-          animation: "spin 0.8s linear infinite",
-        }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <div className="app-loading-screen">
+        <BrandLogo compact />
+        <div className="app-loading-spinner" aria-label="Cargando Treino" />
       </div>
     );
   }
 
-  // ── Auth gate ──────────────────────────────────────────
-  // Si no hay usuario, se queda en la pantalla de espera
-  if (!user && view !== VIEWS.AUTH) {
-    return (
-      <div className="app-root" style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "#121214" }}>
-        {/* Aquí se cargará tu componente AuthScreen real */}
-        <AuthScreen /> 
-      </div>
-    );
+  if (!user) {
+    return <AuthScreen />;
   }
-  console.log("DEBUG — selectedDay actual:", selectedDay);
+
+  const showChrome = CHROME_VIEWS.has(view);
+
   return (
-    <div className="app-root" style={{ background: "#121214", color: "white" }}>
-      
-      {/* ── HEADER DE TREINO ──
-          FIX: antes tenía estilos inline de layout únicamente (display:flex,
-          padding, etc.) pero ninguna instrucción de "no te encojas". Ahora la
-          clase .app-header (definida en styles.css) le da flex-shrink:0
-          dentro de la columna flex de .app-root, así su alto siempre se
-          respeta y nunca le "roba" espacio a .app-main sin que se note. */}
-      {view !== VIEWS.AUTH && (
-        <header
-          className="app-header"
-          style={{ 
-            display: "flex", 
-            justifyContent: "space-between", 
-            alignItems: "center", 
-            padding: "15px 20px", 
-            background: "#1e1e24",
-            borderBottom: "1px solid #333" 
-          }}
-        >
-          <div 
-            style={{ fontWeight: "bold", fontSize: "1.2rem", letterSpacing: "1px", cursor: "pointer" }} 
-            onClick={() => navigate(VIEWS.DASHBOARD)}
-          >
-            TREI<span style={{ color: "#a855f7" }}>NO</span>
-          </div>
-          <button 
-            onClick={() => navigate(VIEWS.PROFILE)}
-            style={{ 
-              background: "#7c3aed", 
-              border: "none", 
-              color: "white", 
-              padding: "8px 16px", 
-              borderRadius: "20px", 
-              cursor: "pointer",
-              fontWeight: "600"
-            }}
-          >
-            👤 Perfil
-          </button>
-        </header>
+    <div className="app-root">
+      {showChrome && (
+        <AppHeader
+          currentView={view}
+          onNavigate={navigate}
+          user={user}
+          profile={profile}
+        />
       )}
 
-      {/* ── CONTENIDO ──
-          FIX: ya no lleva padding inline. Ese padding (20px arriba y abajo)
-          le restaba altura real a .screen sin que .screen se enterara, lo
-          que era parte de la causa del colapso. El padding horizontal que
-          necesitan las vistas ya lo maneja cada una internamente
-          (.topbar, .form-scroll, .dashboard-screen, etc.). La clase
-          .app-main le da flex:1 + min-height:0 + overflow-y:auto, que es
-          lo que permite que .screen (height:100%) reciba una altura real
-          y definida en vez de "auto". */}
-      <main className="app-main">
-        {/* Onboarding modal */}
-        {OnboardingModal && user && <OnboardingModal userId={user?.id} />}
-
-        {/* Dashboard */}
-{view === VIEWS.DASHBOARD && (
-  <Dashboard 
-    onStart={handleStart}
-    onProgress={() => navigate(VIEWS.PROGRESS)}
-    onOpenWorkout={handleOpenWorkout}
-  />
-)}
-
-{view === VIEWS.WORKOUT_DETAIL && (
-  <WorkoutDetail 
-    workout={selectedWorkout}
-    onBack={() => navigate(VIEWS.DASHBOARD)}
-    onRepeat={handleRepeatWorkout}
-  />
-)}
-
-{/* Workout flow */}
-{view === VIEWS.TEMPLATE_SELECTOR && (
-  <TemplateSelector 
-    onSelect={handleTemplateSelected} 
-    onBack={handleReset} 
-  />
-)}
-
-{view === VIEWS.DAY_SELECTOR && (
-  <DaySelector 
-    onSelect={handleDaySelected}
-    onBack={() => navigate(VIEWS.TEMPLATE_SELECTOR)}
-  />
-)}
-
-{view === VIEWS.CATEGORY_SELECTOR && (
-  <CategorySelector 
-    day={selectedDay}
-    onConfirm={handleCategoriesConfirmed}
-    onBack={() => navigate(VIEWS.DAY_SELECTOR)}
-  />
-)}
-
-{view === VIEWS.WORKOUT_FORM && (
-  <WorkoutForm 
-    day={selectedDay}
-    categories={selectedCategories}
-    templateCategories={templateCategories || []}
-    workoutStartTime={workoutStartTime}
-    initialWorkout={repeatWorkout}
-    repeatWorkout={repeatWorkout}
-    onSave={handleWorkoutSaved}
-    onBack={() => navigate(VIEWS.CATEGORY_SELECTOR)}
-  />
-)}
-
-{view === VIEWS.SUMMARY && (
-  <WorkoutSummary 
-    workout={savedWorkout}
-    onDone={handleReset}
-  />
-)}
-
-        {/* Perfil */}
-        {view === VIEWS.PROFILE && (
-          <ProfileView 
-            onBack={() => navigate(VIEWS.DASHBOARD)}
+      <main className={`app-main ${showChrome ? "app-main--shell" : "app-main--immersive"}`}>
+        {view === VIEWS.DASHBOARD && (
+          <Dashboard
+            user={user}
+            profile={profile}
+            onStart={handleStart}
+            onOpenWorkout={handleOpenWorkout}
+            onRepeatWorkout={handleRepeatWorkout}
           />
         )}
+
+        {view === VIEWS.PROGRESS && <ProgressPage />}
+
+        {view === VIEWS.PROFILE && <ProfileView />}
+
+        {view === VIEWS.WORKOUT_DETAIL && (
+          <WorkoutDetail
+            workout={selectedWorkout}
+            onBack={() => navigate(VIEWS.DASHBOARD)}
+            onRepeat={handleRepeatWorkout}
+          />
+        )}
+
+        {view === VIEWS.TEMPLATE_SELECTOR && (
+          <TemplateSelector onSelect={handleTemplateSelected} onBack={handleReset} />
+        )}
+
+        {view === VIEWS.DAY_SELECTOR && (
+          <DaySelector
+            onSelect={handleDaySelected}
+            onBack={() => navigate(VIEWS.TEMPLATE_SELECTOR)}
+          />
+        )}
+
+        {view === VIEWS.CATEGORY_SELECTOR && (
+          <CategorySelector
+            day={selectedDay}
+            onConfirm={handleCategoriesConfirmed}
+            onBack={() => navigate(VIEWS.DAY_SELECTOR)}
+          />
+        )}
+
+        {view === VIEWS.WORKOUT_FORM && (
+          <WorkoutForm
+            day={selectedDay}
+            categories={selectedCategories}
+            templateCategories={templateCategories}
+            workoutStartTime={workoutStartTime}
+            initialWorkout={repeatWorkout}
+            repeatWorkout={repeatWorkout}
+            onSave={handleWorkoutSaved}
+            onBack={handleWorkoutBack}
+          />
+        )}
+
+        {view === VIEWS.SUMMARY && (
+          <WorkoutSummary workout={savedWorkout} onDone={handleReset} />
+        )}
       </main>
+
+      {showChrome && (
+        <BottomNavigation
+          currentView={view}
+          onNavigate={navigate}
+          onStart={handleStart}
+        />
+      )}
     </div>
   );
 }

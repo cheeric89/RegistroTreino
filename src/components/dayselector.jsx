@@ -1,8 +1,4 @@
-// DaySelector.jsx — Selección del día de entrenamiento
-// Para extender: resaltar los días que ya tienen sesiones guardadas,
-// o agregar un indicador de "músculo más trabajado" por día.
-
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const DAYS = [
   { label: "Lunes", short: "LUN", num: "01" },
@@ -15,15 +11,13 @@ const DAYS = [
 ];
 
 export default function DaySelector({ onSelect, onBack }) {
-  const today = new Date().getDay(); // 0=Dom, 1=Lun...
-  // Mapear el índice JS al índice de nuestra lista (Lun=0)
+  const today = new Date().getDay();
   const todayIndex = today === 0 ? 6 : today - 1;
 
   return (
-    <div className="screen">
-      {/* Top bar */}
+    <div className="screen flow-screen">
       <div className="topbar">
-        <button className="back-btn" onClick={onBack}>
+        <button type="button" className="back-btn" onClick={onBack}>
           <ChevronLeft size={20} />
         </button>
         <div className="topbar-title">
@@ -32,24 +26,22 @@ export default function DaySelector({ onSelect, onBack }) {
         </div>
       </div>
 
-      <p className="screen-subtitle">
-        Selecciona el día de tu sesión
-      </p>
+      <p className="screen-subtitle">Selecciona el día de tu sesión.</p>
 
-      {/* Lista de días */}
       <div className="day-list">
-        {DAYS.map((day, i) => {
-          const isToday = i === todayIndex;
+        {DAYS.map((day, index) => {
+          const isToday = index === todayIndex;
           return (
             <button
               key={day.label}
+              type="button"
               className={`day-card ${isToday ? "day-card--today" : ""}`}
               onClick={() => onSelect(day.label)}
             >
               <span className="day-num">{day.num}</span>
               <span className="day-label">{day.label}</span>
               {isToday && <span className="today-badge">Hoy</span>}
-              <ChevronLeft size={16} className="day-arrow" style={{ transform: "rotate(180deg)" }} />
+              <ChevronRight size={16} className="day-arrow" />
             </button>
           );
         })}
