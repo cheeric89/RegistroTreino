@@ -1,0 +1,20 @@
+.dashboard-sync-state {
+  width: fit-content;
+  margin-top: 12px;
+  padding: 6px 10px;
+  color: var(--text-3);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.025);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+@media (max-width: 520px) {
+  .dashboard-sync-state {
+    max-width: 100%;
+    border-radius: 12px;
+    line-height: 1.4;
+  }
+}
