@@ -52,6 +52,26 @@ const mergeByTimestamp = (...collections) => {
   return [...map.values()].sort((a, b) => b.timestamp - a.timestamp);
 };
 
+const applyPendingOperations = (workouts, operations) => {
+  let next = mergeByTimestamp(workouts);
+
+  operations.forEach((operation) => {
+    const timestamp = Number(operation?.timestamp);
+    if (!Number.isFinite(timestamp)) return;
+
+    if (operation.type === "delete") {
+      next = next.filter((workout) => Number(workout.timestamp) !== timestamp);
+      return;
+    }
+
+    if (operation.type === "upsert" && operation.workout) {
+      next = mergeByTimestamp(next, [operation.workout]);
+    }
+  });
+
+  return next;
+};
+
 export function useWorkouts() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -79,9 +99,7 @@ export function useWorkouts() {
         err = result.error;
       }
 
-      if (!err) {
-        removeWorkoutSyncOperation(userId, operation.timestamp);
-      }
+      if (!err) removeWorkoutSyncOperation(userId, operation.timestamp);
     }
   }, []);
 
@@ -100,9 +118,7 @@ export function useWorkouts() {
         onConflict: "user_id,timestamp",
       });
 
-    if (migrationError) {
-      return { migrated: false, error: migrationError };
-    }
+    if (migrationError) return { migrated: false, error: migrationError };
 
     markLegacyWorkoutsMigrated(userId);
     clearLegacyWorkouts();
@@ -141,14 +157,21 @@ export function useWorkouts() {
     if (fetchError) {
       console.warn("[useWorkouts] Supabase no disponible, usando cache:", fetchError.message);
       setError(fetchError.message);
-      const fallback = mergeByTimestamp(localCache, legacy);
+      const fallback = applyPendingOperations(
+        mergeByTimestamp(localCache, legacy),
+        getWorkoutSyncQueue(userId)
+      );
       replaceAllWorkouts(fallback, userId);
       return fallback;
     }
 
-    const remote = (data || []).map(normalizeWorkout);
-    replaceAllWorkouts(remote, userId);
-    return remote;
+    let next = (data || []).map(normalizeWorkout);
+    if (migration.error) next = mergeByTimestamp(next, legacy);
+    next = applyPendingOperations(next, getWorkoutSyncQueue(userId));
+
+    replaceAllWorkouts(next, userId);
+    setError(null);
+    return next;
   }, [flushPendingOperations, migrateLegacyWorkouts, user]);
 
   const saveWorkout = useCallback(async (workout) => {
@@ -181,6 +204,7 @@ export function useWorkouts() {
     }
 
     removeWorkoutSyncOperation(userId, normalized.timestamp);
+    setError(null);
     return { error: null, synced: true };
   }, [user]);
 
@@ -211,6 +235,7 @@ export function useWorkouts() {
     }
 
     removeWorkoutSyncOperation(userId, numericTimestamp);
+    setError(null);
     return { error: null, synced: true };
   }, [user]);
 
