@@ -4,6 +4,7 @@ const LEGACY_WORKOUTS_KEY = "treino_workouts";
 const ACTIVE_USER_KEY = "treino_active_workout_user";
 const DRAFT_KEY = "treino_workout_draft";
 const PROFILE_KEY = "treino_user_profile";
+export const WORKOUT_SAVED_EVENT = "treino:workout-saved";
 
 const userWorkoutsKey = (userId) => `treino_workouts:${userId}`;
 const syncQueueKey = (userId) => `treino_workout_sync_queue:${userId}`;
@@ -24,6 +25,14 @@ const writeJSON = (key, value) => {
     return true;
   } catch {
     return false;
+  }
+};
+
+const emitWorkoutSaved = (workout) => {
+  try {
+    window.dispatchEvent(new CustomEvent(WORKOUT_SAVED_EVENT, { detail: { workout } }));
+  } catch {
+    // Entornos sin window (tests/build) simplemente omiten la notificacion.
   }
 };
 
@@ -62,12 +71,10 @@ export function setActiveWorkoutUser(userId) {
   }
 }
 
-/** Lee los entrenamientos del usuario activo o del cache indicado. */
 export function getAllWorkouts(userId = null) {
   return sortAndDedupeWorkouts(readJSON(resolveWorkoutKey(userId), []));
 }
 
-/** Historial antiguo previo a la sincronizacion por usuario. */
 export function getLegacyWorkouts() {
   return sortAndDedupeWorkouts(readJSON(LEGACY_WORKOUTS_KEY, []));
 }
@@ -81,19 +88,21 @@ export function clearLegacyWorkouts() {
   }
 }
 
-/** Reemplaza el cache completo despues de leer Supabase. */
 export function replaceAllWorkouts(workouts, userId = null) {
   return writeJSON(resolveWorkoutKey(userId), sortAndDedupeWorkouts(workouts));
 }
 
 /** Guardar o actualizar un workout por timestamp. */
-export function saveWorkout(workout, userId = null) {
+export function saveWorkout(workout, userId = null, options = {}) {
   try {
     const timestamp = Number(workout?.timestamp) || Date.now();
     const current = getAllWorkouts(userId);
     const updatedWorkout = { ...workout, timestamp };
     const withoutSameTimestamp = current.filter((item) => item.timestamp !== timestamp);
-    return replaceAllWorkouts([updatedWorkout, ...withoutSameTimestamp], userId);
+    const saved = replaceAllWorkouts([updatedWorkout, ...withoutSameTimestamp], userId);
+
+    if (saved && options.emit !== false) emitWorkoutSaved(updatedWorkout);
+    return saved;
   } catch {
     return false;
   }
@@ -115,7 +124,6 @@ export function deleteWorkout(timestamp, userId = null) {
   }
 }
 
-/** Cola de operaciones que no pudieron llegar a Supabase. */
 export function getWorkoutSyncQueue(userId) {
   if (!userId) return [];
   return readJSON(syncQueueKey(userId), []);
@@ -168,7 +176,6 @@ export function markLegacyWorkoutsMigrated(userId) {
   }
 }
 
-/** Devuelve las series de la sesion mas reciente de un ejercicio. */
 export function getLastExercisePerformance(exerciseName) {
   const normalizedName = exerciseName?.trim().toLocaleLowerCase("es");
   if (!normalizedName) return null;
@@ -213,10 +220,6 @@ export function saveLocalProfile(profile) {
   return writeJSON(PROFILE_KEY, profile || {});
 }
 
-/**
- * Devuelve ejercicios unicos enriquecidos con su grupo muscular y las
- * series de la sesion mas reciente del usuario activo.
- */
 export function getExerciseSuggestions() {
   const exercisesMap = new Map();
 
