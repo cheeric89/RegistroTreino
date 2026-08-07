@@ -1,209 +1,178 @@
-//src/components/workoutform.jsx
-
-import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
-import { ChevronLeft, Plus, Trash2, CheckCircle2, Check } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Check, CheckCircle2, ChevronLeft, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useProfile } from "../hooks/useProfile";
 import {
-  saveWorkout,
-  saveDraftWorkout,
-  getDraftWorkout,
   clearDraftWorkout,
-  getLastExercisePerformance,
+  getDraftWorkout,
   getExerciseSuggestions,
+  getLastExercisePerformance,
+  saveDraftWorkout,
+  saveWorkout,
 } from "../utils/storage";
-import { getProgressionHint, getPRStatus } from "../utils/progressionEngine";
-import ExerciseHint, { PRBadge } from "./ExerciseHint";
+import { getPRStatus } from "../utils/progressionEngine";
+import "./workoutform-autocomplete.css";
 
-const newSet = () => ({
+const newSet = (set = {}) => ({
   id: Date.now() + Math.random(),
-  weight: "",
-  reps: "",
+  weight: set.weight ?? "",
+  reps: set.reps ?? "",
   done: false,
 });
 
-const initCategory = (name, presetExercises = null) => ({
+const initCategory = (name, preset = null) => ({
   name,
   expanded: true,
-  exercises: presetExercises
-    ? presetExercises.map((ex) => ({
-        name: ex.name || "",
-        sets: ex.sets?.length > 0 ? ex.sets.map(() => newSet()) : [newSet()],
+  exercises: preset
+    ? preset.map((exercise) => ({
+        name: exercise.name || "",
+        sets: exercise.sets?.length ? exercise.sets.map(() => newSet()) : [newSet()],
       }))
     : [{ name: "Ejercicio 1", sets: [newSet()] }],
 });
 
-export default function WorkoutForm({ day, categories = [], templateCategories = [], initialWorkout = null, repeatWorkout = null, workoutStartTime, onSave, onBack }) {
+const normalize = (value = "") => value.trim().toLocaleLowerCase("es");
+
+const formatTime = (seconds) => {
+  const values = [Math.floor(seconds / 3600), Math.floor((seconds % 3600) / 60), seconds % 60];
+  return values.map((value) => String(value).padStart(2, "0")).join(":");
+};
+
+const formatRestTime = (seconds) =>
+  `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+
+const highlightMatch = (text = "", query = "") => {
+  const cleanQuery = query.trim();
+  if (!cleanQuery) return text;
+  const index = normalize(text).indexOf(normalize(cleanQuery));
+  if (index < 0) return text;
+  return (
+    <>
+      {text.slice(0, index)}
+      <span className="wf-suggestion-highlight">{text.slice(index, index + cleanQuery.length)}</span>
+      {text.slice(index + cleanQuery.length)}
+    </>
+  );
+};
+
+const getVisibleSets = (sets = []) =>
+  sets.filter((set) => String(set?.weight ?? "").trim() || String(set?.reps ?? "").trim()).slice(0, 4);
+
+export default function WorkoutForm({
+  day,
+  categories = [],
+  templateCategories = [],
+  initialWorkout = null,
+  repeatWorkout = null,
+  workoutStartTime,
+  onSave,
+  onBack,
+}) {
   const { profile } = useProfile();
   const [saving, setSaving] = useState(false);
-  const [prResults, setPrResults] = useState([]);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [exerciseSuggestions] = useState(() => getExerciseSuggestions());
-
-const [activeSuggestions, setActiveSuggestions] = useState({
-  ci: null,
-  ei: null,
-  list: [],
-});
-
-  
-
+  const [activeSuggestions, setActiveSuggestions] = useState({ ci: null, ei: null, list: [] });
+  const [copiedExercise, setCopiedExercise] = useState(null);
+  const copiedTimerRef = useRef(null);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
-
   const [restEndTime, setRestEndTime] = useState(null);
   const [restRemaining, setRestRemaining] = useState(0);
-  console.log("Inicio del entrenamiento:", workoutStartTime);
-  useEffect(() => {
-  if (!workoutStartTime) return;
 
-  const updateTimer = () => {
-    const seconds = Math.floor(
-      (Date.now() - workoutStartTime) / 1000
-    );
-
-    setElapsedTime(seconds);
-  };
-
-  // Actualiza inmediatamente
-  updateTimer();
-
-  // Actualiza cada segundo
-  const interval = setInterval(updateTimer, 1000);
-
-  return () => clearInterval(interval);
-}, [workoutStartTime]);
-
-useEffect(() => {
-  const savedRest = localStorage.getItem("treino_rest_timer");
-
-  if (!savedRest) return;
-
-  try {
-    const { endTime } = JSON.parse(savedRest);
-
-    // Si el descanso todavía no termina, lo recuperamos
-    if (endTime > Date.now()) {
-      setRestEndTime(endTime);
-
-      toast.info("⏳ Descanso recuperado");
-    } else {
-      // Si ya pasó, limpiamos basura
-      localStorage.removeItem("treino_rest_timer");
-    }
-  } catch {
-    localStorage.removeItem("treino_rest_timer");
-  }
-}, []); 
-
-  // Definimos la función de construcción usando las props que llegan al componente
   const buildFreshCatData = useCallback(() => {
-    if (templateCategories && templateCategories.length > 0)
-      return templateCategories.map((tc) => initCategory(tc.name, tc.exercises));
-    if (categories && categories.length > 0)
-      return categories.map((name) => initCategory(name));
-    return [];
+    if (templateCategories.length) {
+      return templateCategories.map((category) => initCategory(category.name, category.exercises));
+    }
+    return categories.map((name) => initCategory(name));
   }, [categories, templateCategories]);
 
-  // Inicializamos el estado principal
   const [catData, setCatData] = useState(() => {
-  const draft = getDraftWorkout();
-
-  // 1. Si existe un borrador, siempre tiene prioridad
-  if (draft?.catData?.length > 0) {
-    return draft.catData;
-  }
-
-  // 2. Si venimos desde "Repetir entrenamiento"
-  if (initialWorkout?.exercises?.length > 0) {
-    return initialWorkout.exercises.map(category => ({
+    const draft = getDraftWorkout();
+    if (draft?.catData?.length && !repeatWorkout) return draft.catData;
+    if (!initialWorkout?.exercises?.length) return buildFreshCatData();
+    return initialWorkout.exercises.map((category) => ({
       name: category.name,
       expanded: true,
-      exercises: category.exercises.map(ex => ({
-        name: ex.name,
-        sets: ex.sets.map(() => newSet())
-      }))
+      exercises: (category.exercises || []).map((exercise) => ({
+        name: exercise.name,
+        sets: exercise.sets?.length ? exercise.sets.map(() => newSet()) : [newSet()],
+      })),
     }));
-  }
+  });
 
-  // 3. Entrenamiento completamente nuevo
-  return buildFreshCatData();
-});
+  useEffect(() => () => clearTimeout(copiedTimerRef.current), []);
 
-  // Aviso de recuperación de borrador
+  useEffect(() => {
+    if (!workoutStartTime) return undefined;
+    const update = () => setElapsedTime(Math.max(0, Math.floor((Date.now() - workoutStartTime) / 1000)));
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [workoutStartTime]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("treino_rest_timer");
+    if (!saved) return;
+    try {
+      const { endTime } = JSON.parse(saved);
+      if (endTime > Date.now()) {
+        setRestEndTime(endTime);
+        toast.info("⏳ Descanso recuperado");
+      } else localStorage.removeItem("treino_rest_timer");
+    } catch {
+      localStorage.removeItem("treino_rest_timer");
+    }
+  }, []);
+
   useEffect(() => {
     const draft = getDraftWorkout();
-    if (repeatWorkout) return;
-    if (draft?.catData?.length > 0) {
-      toast.info("💪 Entrenamiento recuperado", {
-  description: `Continuamos tu sesión del ${draft.day}. Puedes seguir donde lo dejaste o descartarla.`,
-  action: {
-    label: "Seguir",
-    onClick: () => {}
-  },
-  cancel: {
-    label: "Descartar",
-    onClick: () => {
-      clearDraftWorkout();
-      setCatData(buildFreshCatData());
-    }
-  }
-});
-    }
+    if (repeatWorkout || !draft?.catData?.length) return;
+    toast.info("💪 Entrenamiento recuperado", {
+      description: `Continuamos tu sesión del ${draft.day}. Puedes seguir donde lo dejaste o descartarla.`,
+      action: { label: "Seguir", onClick: () => {} },
+      cancel: {
+        label: "Descartar",
+        onClick: () => {
+          clearDraftWorkout();
+          setCatData(buildFreshCatData());
+        },
+      },
+    });
   }, [buildFreshCatData, repeatWorkout]);
 
-  // Autosave
   useEffect(() => {
-  if (catData && catData.length > 0) {
-    saveDraftWorkout({
-      day,
-      categories,
-      templateCategories,
-      workoutStartTime,
-      catData
-    });
-  }
-}, [
-  catData,
-  day,
-  categories,
-  templateCategories,
-  workoutStartTime
-]);
-useEffect(() => {
-  if (!restEndTime) return;
+    if (catData.length) {
+      saveDraftWorkout({ day, categories, templateCategories, workoutStartTime, catData });
+    }
+  }, [catData, categories, day, templateCategories, workoutStartTime]);
 
-  const updateRestTimer = () => {
-    const remaining = Math.ceil(
-      (restEndTime - Date.now()) / 1000
-    );
-
-    if (remaining <= 0) {
+  useEffect(() => {
+    if (!restEndTime) return undefined;
+    const update = () => {
+      const remaining = Math.ceil((restEndTime - Date.now()) / 1000);
+      if (remaining > 0) return setRestRemaining(remaining);
       setRestRemaining(0);
       setRestEndTime(null);
-
       localStorage.removeItem("treino_rest_timer");
-
       toast.success("🔥 Descanso terminado");
+      if ("vibrate" in navigator) navigator.vibrate([300, 200, 300]);
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [restEndTime]);
 
-      if ("vibrate" in navigator) {
-        navigator.vibrate([300, 200, 300]);
-      }
+  const updateCategory = useCallback((ci, updater) => {
+    setCatData((previous) => previous.map((category, index) => (index === ci ? updater(category) : category)));
+  }, []);
 
-      return;
-    }
-
-    setRestRemaining(remaining);
-  };
-
-  // Actualizar inmediatamente
-  updateRestTimer();
-
-  // Luego cada segundo
-  const interval = setInterval(updateRestTimer, 1000);
-
-  return () => clearInterval(interval);
-}, [restEndTime]);
+  const updateExercise = useCallback((ci, ei, updater) => {
+    updateCategory(ci, (category) => ({
+      ...category,
+      exercises: category.exercises.map((exercise, index) => (index === ei ? updater(exercise) : exercise)),
+    }));
+  }, [updateCategory]);
 
   const handleBack = useCallback(() => {
     clearDraftWorkout();
@@ -211,466 +180,310 @@ useEffect(() => {
   }, [onBack]);
 
   const startRestTimer = useCallback(() => {
-  const seconds = profile?.rest_time_seconds || 120;
+    const seconds = profile?.rest_time_seconds || 120;
+    const endTime = Date.now() + seconds * 1000;
+    setRestEndTime(endTime);
+    localStorage.setItem("treino_rest_timer", JSON.stringify({ endTime }));
+    toast.info(`⏳ Descanso iniciado: ${formatRestTime(seconds)}`);
+  }, [profile]);
 
-  const endTime = Date.now() + seconds * 1000;
+  const cancelRestTimer = useCallback(() => {
+    setRestEndTime(null);
+    setRestRemaining(0);
+    localStorage.removeItem("treino_rest_timer");
+    toast.info("❌ Descanso cancelado");
+  }, []);
 
-  setRestEndTime(endTime);
+  const toggleExpand = useCallback((ci) => {
+    updateCategory(ci, (category) => ({ ...category, expanded: !category.expanded }));
+  }, [updateCategory]);
 
-  localStorage.setItem(
-    "treino_rest_timer",
-    JSON.stringify({
-      endTime,
-    })
-  );
+  const addExercise = useCallback((ci) => {
+    updateCategory(ci, (category) => ({
+      ...category,
+      exercises: [...category.exercises, { name: "", sets: [newSet()] }],
+    }));
+  }, [updateCategory]);
 
-  toast.info(`⏳ Descanso iniciado: ${formatRestTime(seconds)}`);
-}, [profile]);
-const cancelRestTimer = useCallback(() => {
-  setRestEndTime(null);
-  setRestRemaining(0);
+  const addCategory = useCallback(() => {
+    const name = newCategoryName.trim();
+    if (!name) return;
+    setCatData((previous) => [...previous, { name, expanded: true, exercises: [{ name: "", sets: [newSet()] }] }]);
+    setNewCategoryName("");
+    setShowCategoryModal(false);
+  }, [newCategoryName]);
 
-  localStorage.removeItem("treino_rest_timer");
+  const removeExercise = useCallback((ci, ei) => {
+    updateCategory(ci, (category) => ({
+      ...category,
+      exercises: category.exercises.filter((_, index) => index !== ei),
+    }));
+    setActiveSuggestions({ ci: null, ei: null, list: [] });
+  }, [updateCategory]);
 
-  toast.info("❌ Descanso cancelado");
-}, []);
-
-
-  // ── Mutadores de estado ────────────────────────────────
-  const toggleExpand = useCallback((ci) =>
-    setCatData((prev) => prev.map((c, i) => (i === ci ? { ...c, expanded: !c.expanded } : c))), []);
-
-  const addExercise = useCallback((ci) =>
-    setCatData((prev) => prev.map((c, i) => 
-      i === ci ? { ...c, exercises: [...c.exercises, { name: "", sets: [newSet()] }] } : c
-    )), []);
-    const addCategory = useCallback(() => {
-  const name = newCategoryName.trim();
-
-  if (!name) return;
-
-  setCatData((prev) => [
-    ...prev,
-    {
-      name,
-      expanded: true,
-      exercises: [
-        {
-          name: "",
-          sets: [newSet()]
-        }
-      ]
-    }
-  ]);
-
-  setNewCategoryName("");
-  setShowCategoryModal(false);
-}, [newCategoryName]);
-
-  const removeExercise = useCallback((ci, ei) =>
-    setCatData((prev) => prev.map((c, i) => 
-      i === ci ? { ...c, exercises: c.exercises.filter((_, j) => j !== ei) } : c
-    )), []);
-
-  const setExName = useCallback((ci, ei, val) => {
-
-  setCatData((prev) =>
-    prev.map((c, i) =>
-      i === ci
-        ? {
-            ...c,
-            exercises: c.exercises.map((ex, j) =>
-              j === ei ? { ...ex, name: val } : ex
-            ),
-          }
-        : c
-    )
-  );
-
-  // Mostrar sugerencias
-  if (val.trim().length >= 2) {
+  const setExName = useCallback((ci, ei, value) => {
+    updateExercise(ci, ei, (exercise) => ({ ...exercise, name: value }));
+    const query = normalize(value);
+    if (query.length < 2) return setActiveSuggestions({ ci: null, ei: null, list: [] });
 
     const matches = exerciseSuggestions
-      .filter(ex =>
-        ex.toLowerCase().includes(val.toLowerCase())
-      )
+      .filter((suggestion) => normalize(suggestion.name).includes(query))
+      .sort((a, b) => {
+        const startsDifference = Number(!normalize(a.name).startsWith(query)) - Number(!normalize(b.name).startsWith(query));
+        return startsDifference || a.name.localeCompare(b.name, "es");
+      })
       .slice(0, 6);
+    setActiveSuggestions({ ci, ei, list: matches });
+  }, [exerciseSuggestions, updateExercise]);
 
-    setActiveSuggestions({
-      ci,
-      ei,
-      list: matches,
-    });
+  const applyExerciseSuggestion = useCallback((ci, ei, suggestion) => {
+    const sourceSets = suggestion.lastSets?.length ? suggestion.lastSets : [{}];
+    updateExercise(ci, ei, (exercise) => ({
+      ...exercise,
+      name: suggestion.name,
+      sets: sourceSets.map((set) => newSet(set)),
+    }));
+    setActiveSuggestions({ ci: null, ei: null, list: [] });
+    setCopiedExercise({ ci, ei });
+    clearTimeout(copiedTimerRef.current);
+    copiedTimerRef.current = setTimeout(() => setCopiedExercise(null), 1800);
+  }, [updateExercise]);
 
-  } else {
+  const addSet = useCallback((ci, ei) => {
+    updateExercise(ci, ei, (exercise) => ({ ...exercise, sets: [...exercise.sets, newSet()] }));
+  }, [updateExercise]);
 
-    setActiveSuggestions({
-      ci: null,
-      ei: null,
-      list: [],
-    });
+  const updateSet = useCallback((ci, ei, si, field, value) => {
+    updateExercise(ci, ei, (exercise) => ({
+      ...exercise,
+      sets: exercise.sets.map((set, index) => (index === si ? { ...set, [field]: value } : set)),
+    }));
+  }, [updateExercise]);
 
-  }
+  const toggleDone = useCallback((ci, ei, si) => {
+    updateExercise(ci, ei, (exercise) => ({
+      ...exercise,
+      sets: exercise.sets.map((set, index) => (index === si ? { ...set, done: !set.done } : set)),
+    }));
+  }, [updateExercise]);
 
-}, [exerciseSuggestions]);
-
-  const addSet = useCallback((ci, ei) =>
-    setCatData((prev) => prev.map((c, i) => 
-      i === ci ? { ...c, exercises: c.exercises.map((ex, j) => (j === ei ? { ...ex, sets: [...ex.sets, newSet()] } : ex)) } : c
-    )), []);
-
-  const updateSet = useCallback((ci, ei, si, field, val) =>
-    setCatData((prev) => prev.map((c, i) => 
-      i === ci ? { ...c, exercises: c.exercises.map((ex, j) => (j === ei ? { ...ex, sets: ex.sets.map((s, k) => (k === si ? { ...s, [field]: val } : s)) } : ex)) } : c
-    )), []);
-
-  const toggleDone = useCallback((ci, ei, si) =>
-    setCatData((prev) => prev.map((c, i) => 
-      i === ci ? { ...c, exercises: c.exercises.map((ex, j) => (j === ei ? { ...ex, sets: ex.sets.map((s, k) => (k === si ? { ...s, done: !s.done } : s)) } : ex)) } : c
-    )), []);
-
-  const hints = useMemo(() => {
-    const map = {};
-    catData.forEach(cat => {
-      cat.exercises.forEach(ex => {
-        if (ex.name && !map[ex.name]) map[ex.name] = getProgressionHint(ex.name);
-      });
-    });
-    return map;
-  }, [catData]);
   const lastPerformances = useMemo(() => {
-  const map = {};
+    const performances = {};
+    catData.forEach((category) => category.exercises.forEach((exercise) => {
+      if (exercise.name?.trim()) performances[exercise.name] = getLastExercisePerformance(exercise.name);
+    }));
+    return performances;
+  }, [catData]);
 
-  catData.forEach((cat) => {
-    cat.exercises.forEach((ex) => {
-      if (!ex.name?.trim()) return;
+  const handleSave = useCallback((event) => {
+    event?.preventDefault();
+    if (saving) return;
+    setSaving(true);
+    let totalVolume = 0;
+    let prCount = 0;
 
-      map[ex.name] = getLastExercisePerformance(ex.name);
-    });
-  });
-
-  return map;
-}, [catData]);
-
-  const handleSave = useCallback((e) => {
-  e?.preventDefault();
-
-  if (saving) return;
-  setSaving(true);
-
-  const detected = [];
-
-  let totalVolume = 0;
-
-  catData.forEach(cat => {
-    cat.exercises.forEach(ex => {
-
-      // Detectar PRs
-      if (ex.name?.trim()) {
-        const status = getPRStatus(ex.name, ex.sets ?? []);
-
-        if (status.isPR) {
-          detected.push({
-            exerciseName: ex.name,
-            status
-          });
-        }
-      }
-
-      // Calcular volumen
-      ex.sets.forEach(set => {
+    catData.forEach((category) => category.exercises.forEach((exercise) => {
+      if (exercise.name?.trim() && getPRStatus(exercise.name, exercise.sets || []).isPR) prCount += 1;
+      (exercise.sets || []).forEach((set) => {
         const weight = Number(set.weight);
         const reps = Number(set.reps);
-
-        if (!isNaN(weight) && !isNaN(reps)) {
-          totalVolume += weight * reps;
-        }
+        if (Number.isFinite(weight) && Number.isFinite(reps)) totalVolume += weight * reps;
       });
+    }));
 
-    });
-  });
-
-  setPrResults(detected);
-
-  const workout = {
-    day,
-    date: new Date().toLocaleDateString("es-CL"),
-    timestamp: Date.now(),
-
-    duration: elapsedTime,
-    volume: totalVolume,
-
-    exercises: catData,
-    categories: catData.map(c => c.name),
-  };
-
-
-  if (saveWorkout(workout)) {
-    clearDraftWorkout();
-  }
-
-  setTimeout(() => {
-    setSaving(false);
-    onSave(workout);
-  }, detected.length > 0 ? 2200 : 350);
-
-}, [saving, catData, day, elapsedTime, onSave]);
-const formatTime = (seconds) => {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
-
-  return [hours, minutes, secs]
-    .map((n) => String(n).padStart(2, "0"))
-    .join(":");
-};
-
-const formatRestTime = (seconds) => {
-  const mins = String(Math.floor(seconds / 60)).padStart(2, "0");
-  const secs = String(seconds % 60).padStart(2, "0");
-
-  return `${mins}:${secs}`;
-};
+    const workout = {
+      day,
+      date: new Date().toLocaleDateString("es-CL"),
+      timestamp: Date.now(),
+      duration: elapsedTime,
+      volume: totalVolume,
+      exercises: catData,
+      categories: catData.map((category) => category.name),
+    };
+    if (saveWorkout(workout)) clearDraftWorkout();
+    setTimeout(() => {
+      setSaving(false);
+      onSave?.(workout);
+    }, prCount ? 2200 : 350);
+  }, [catData, day, elapsedTime, onSave, saving]);
 
   return (
-  <div className="screen">
-    {/* Topbar */}
-<div className="topbar">
-  <button type="button" className="back-btn" onClick={onBack}>
-    <ChevronLeft size={20} />
-  </button>
-
-  <div className="topbar-title">
-    <span className="step-label">{day || "Entrenamiento"}</span>
-    <h2>Entrenamiento en curso</h2>
-
-    <span
-      style={{
-        fontSize: "0.85rem",
-        color: "#a855f7",
-        fontWeight: "600",
-        marginTop: "4px",
-        display: "block",
-      }}
-    >
-      ⏱ {formatTime(elapsedTime)}
-    </span>
-  </div>
-
-  <button
-    type="button"
-    className={`wf-save-btn ${saving ? "wf-save-btn--done" : ""}`}
-    onClick={handleSave}
-  >
-    <CheckCircle2 size={22} />
-  </button>
-</div>
-
-    {/* Formulario scrollable */}
-    <div className="form-scroll" style={{ paddingTop: 12 }}>
-      {catData.map((cat, ci) => (
-        <div key={ci} className="wf-cat-block">
-          <button type="button" className="wf-cat-header" onClick={() => toggleExpand(ci)}>
-            <span className="wf-cat-title">{cat.name}</span>
-            <span className="wf-chevron">{cat.expanded ? "▾" : "▸"}</span>
-          </button>
-          
-          {cat.expanded && (
-            <div className="wf-exercises">
-              {cat.exercises.map((ex, ei) => (
-                <div key={ei} className="wf-ex-card">
-                  <div
-  className="wf-ex-name-row"
-  style={{
-    position: "relative",
-  }}
->
-  <input
-    type="text"
-    className="wf-ex-name-input"
-    value={ex.name}
-    onChange={(e) => setExName(ci, ei, e.target.value)}
-    placeholder="Nombre del ejercicio"
-    autoComplete="off"
-  />
-
-  <button
-    type="button"
-    className="icon-btn icon-btn--danger"
-    onClick={() => removeExercise(ci, ei)}
-  >
-    <Trash2 size={16} />
-  </button>
-
-  {activeSuggestions.ci === ci &&
-    activeSuggestions.ei === ei &&
-    activeSuggestions.list.length > 0 && (
-
-      <div className="wf-suggestions">
-
-        {activeSuggestions.list.map((suggestion) => (
-
-          <button
-            key={suggestion}
-            type="button"
-            className="wf-suggestion-item"
-            onClick={() => {
-
-              setExName(ci, ei, suggestion);
-
-              setActiveSuggestions({
-                ci: null,
-                ei: null,
-                list: [],
-              });
-
-            }}
-          >
-            🏋️ {suggestion}
-          </button>
-
-        ))}
-
+    <div className="screen">
+      <div className="topbar">
+        <button type="button" className="back-btn" onClick={handleBack} aria-label="Volver">
+          <ChevronLeft size={20} />
+        </button>
+        <div className="topbar-title">
+          <span className="step-label">{day || "Entrenamiento"}</span>
+          <h2>Entrenamiento en curso</h2>
+          <span style={{ display: "block", marginTop: 4, color: "#a855f7", fontSize: ".85rem", fontWeight: 600 }}>
+            ⏱ {formatTime(elapsedTime)}
+          </span>
+        </div>
+        <button type="button" className={`wf-save-btn ${saving ? "wf-save-btn--done" : ""}`} onClick={handleSave} aria-label="Guardar entrenamiento">
+          <CheckCircle2 size={22} />
+        </button>
       </div>
 
-  )}
+      <div className="form-scroll" style={{ paddingTop: 12 }}>
+        {catData.map((category, ci) => (
+          <div key={`${category.name}-${ci}`} className="wf-cat-block">
+            <button type="button" className="wf-cat-header" onClick={() => toggleExpand(ci)}>
+              <span className="wf-cat-title">{category.name}</span>
+              <span className="wf-chevron">{category.expanded ? "▾" : "▸"}</span>
+            </button>
 
-</div>
-                  {lastPerformances[ex.name]?.length > 0 && (
-  <div className="wf-last-session">
-    <span className="wf-last-title">
-      📊 Última sesión
-    </span>
+            {category.expanded && (
+              <div className="wf-exercises">
+                {category.exercises.map((exercise, ei) => {
+                  const wasCopied = copiedExercise?.ci === ci && copiedExercise?.ei === ei;
+                  return (
+                    <div key={ei} className="wf-ex-card">
+                      <div className="wf-ex-name-row" style={{ position: "relative" }}>
+                        <input
+                          type="text"
+                          className="wf-ex-name-input"
+                          value={exercise.name}
+                          onChange={(event) => setExName(ci, ei, event.target.value)}
+                          placeholder="Nombre del ejercicio"
+                          autoComplete="off"
+                          aria-autocomplete="list"
+                        />
+                        <button type="button" className="icon-btn icon-btn--danger" onClick={() => removeExercise(ci, ei)} aria-label="Eliminar ejercicio">
+                          <Trash2 size={16} />
+                        </button>
 
-    <div className="wf-last-pills">
-      {lastPerformances[ex.name].map((set, index) => (
-        <span
-          key={index}
-          className="wf-last-pill"
-        >
-          {set.weight || 0} kg × {set.reps || 0}
-        </span>
-      ))}
-    </div>
-  </div>
-)}
-                  
-                  {/* Encabezados alineados */}
-                  <div className="wf-sets-header">
-                    <span className="header-space"></span>
-                    <span className="header-weight">Peso (kg)</span>
-                    <span className="header-reps">Reps</span>
-                    <span className="header-check">✓</span>
-                  </div>
-                  
-                  {/* Filas de series */}
-                  {ex.sets.map((set, si) => (
-                    <div key={set.id} className={`wf-set-row ${set.done ? "wf-set-row--done" : ""}`}>
-                      <div className="set-number-box">
-                        <span>{si + 1}</span>
+                        {activeSuggestions.ci === ci && activeSuggestions.ei === ei && activeSuggestions.list.length > 0 && (
+                          <div className="wf-suggestions" role="listbox" aria-label="Sugerencias de ejercicios">
+                            {activeSuggestions.list.map((suggestion) => {
+                              const visibleSets = getVisibleSets(suggestion.lastSets);
+                              return (
+                                <button
+                                  key={`${suggestion.name}-${suggestion.category}`}
+                                  type="button"
+                                  className="wf-suggestion-item"
+                                  role="option"
+                                  aria-selected="false"
+                                  onClick={() => applyExerciseSuggestion(ci, ei, suggestion)}
+                                >
+                                  <div className="wf-suggestion-main">
+                                    <span className="wf-suggestion-icon" aria-hidden="true">🏋️</span>
+                                    <span className="wf-suggestion-copy">
+                                      <span className="wf-suggestion-name">{highlightMatch(suggestion.name, exercise.name)}</span>
+                                      <span className="wf-suggestion-category">{suggestion.category}</span>
+                                    </span>
+                                  </div>
+                                  {visibleSets.length > 0 && (
+                                    <span className="wf-suggestion-sets">
+                                      {visibleSets.map((set, index) => (
+                                        <span key={`${suggestion.name}-${index}`} className="wf-suggestion-set">
+                                          {set.weight || 0} × {set.reps || 0}
+                                        </span>
+                                      ))}
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        className="wf-set-input"
-                        placeholder="0"
-                        value={set.weight}
-                        onChange={(e) => updateSet(ci, ei, si, "weight", e.target.value)}
-                      />
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        className="wf-set-input"
-                        placeholder="0"
-                        value={set.reps}
-                        onChange={(e) => updateSet(ci, ei, si, "reps", e.target.value)}
-                      />
-                      <button
-                        type="button"
-                        className={`wf-done-btn ${set.done ? "active" : ""}`}
-                        onClick={() => toggleDone(ci, ei, si)}
-                      >
-                        <Check size={16} />
+
+                      {wasCopied && <div className="wf-copied-banner" role="status">✨ Series copiadas automáticamente</div>}
+
+                      {lastPerformances[exercise.name]?.length > 0 && (
+                        <div className="wf-last-session">
+                          <span className="wf-last-title">📊 Última sesión</span>
+                          <div className="wf-last-pills">
+                            {lastPerformances[exercise.name].map((set, index) => (
+                              <span key={index} className="wf-last-pill">{set.weight || 0} kg × {set.reps || 0}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="wf-sets-header">
+                        <span className="header-space" />
+                        <span className="header-weight">Peso (kg)</span>
+                        <span className="header-reps">Reps</span>
+                        <span className="header-check">✓</span>
+                      </div>
+
+                      {exercise.sets.map((set, si) => (
+                        <div key={set.id} className={`wf-set-row ${set.done ? "wf-set-row--done" : ""}`}>
+                          <div className="set-number-box"><span>{si + 1}</span></div>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            className={`wf-set-input ${wasCopied ? "wf-set-input--copied" : ""}`}
+                            placeholder="0"
+                            value={set.weight}
+                            onChange={(event) => updateSet(ci, ei, si, "weight", event.target.value)}
+                          />
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            className={`wf-set-input ${wasCopied ? "wf-set-input--copied" : ""}`}
+                            placeholder="0"
+                            value={set.reps}
+                            onChange={(event) => updateSet(ci, ei, si, "reps", event.target.value)}
+                          />
+                          <button
+                            type="button"
+                            className={`wf-done-btn ${set.done ? "active wf-done-btn--active" : ""}`}
+                            onClick={() => toggleDone(ci, ei, si)}
+                            aria-label={`Marcar serie ${si + 1}`}
+                          >
+                            <Check size={16} />
+                          </button>
+                        </div>
+                      ))}
+
+                      <button type="button" className="wf-add-set-btn" onClick={() => addSet(ci, ei)}>+ Serie</button>
+                      <button type="button" className="wf-rest-btn" onClick={restEndTime ? cancelRestTimer : startRestTimer}>
+                        {restEndTime
+                          ? `❌ Cancelar (${formatRestTime(restRemaining)})`
+                          : `⏱ Descansar ${formatRestTime(profile?.rest_time_seconds || 120)}`}
                       </button>
                     </div>
-                  ))}
-                  
-                  <button type="button" className="wf-add-set-btn" onClick={() => addSet(ci, ei)}>
-                    + Serie
-                  </button>
-                  <button
-  type="button"
-  className="wf-rest-btn"
-  onClick={restEndTime ? cancelRestTimer : startRestTimer}
->
-  {restEndTime
-  ? `❌ Cancelar (${formatRestTime(restRemaining)})`
-  : `⏱ Descansar ${formatRestTime(profile?.rest_time_seconds || 120)}`}
-</button>
-                </div>
-              ))} 
+                  );
+                })}
 
-              {/* Botón de "Añadir ejercicio" debajo de cada sección */}
-              <button
-                type="button"
-                className="wf-add-ex-btn"
-                onClick={() => addExercise(ci)}
-              >
-                + Añadir ejercicio a {cat.name}
-              </button>
+                <button type="button" className="wf-add-ex-btn" onClick={() => addExercise(ci)}>
+                  + Añadir ejercicio a {category.name}
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <button type="button" className="wf-add-category-btn" onClick={() => setShowCategoryModal(true)}>
+        ➕ Añadir grupo muscular
+      </button>
+
+      {showCategoryModal && (
+        <div className="wf-modal-overlay">
+          <div className="wf-modal">
+            <h3>Nuevo grupo muscular</h3>
+            <input
+              type="text"
+              value={newCategoryName}
+              onChange={(event) => setNewCategoryName(event.target.value)}
+              placeholder="Ej: Abdomen"
+              className="wf-modal-input"
+            />
+            <div className="wf-modal-actions">
+              <button type="button" onClick={() => { setShowCategoryModal(false); setNewCategoryName(""); }}>Cancelar</button>
+              <button type="button" onClick={addCategory}>Crear</button>
             </div>
-          )}
+          </div>
         </div>
-      ))}
-    </div>
-    <button
-  type="button"
-  className="wf-add-category-btn"
-  onClick={() => setShowCategoryModal(true)}
->
-  ➕ Añadir grupo muscular
-</button>
-{showCategoryModal && (
-  <div className="wf-modal-overlay">
-    <div className="wf-modal">
-      <h3>Nuevo grupo muscular</h3>
+      )}
 
-      <input
-        type="text"
-        value={newCategoryName}
-        onChange={(e) => setNewCategoryName(e.target.value)}
-        placeholder="Ej: Abdomen"
-        className="wf-modal-input"
-      />
-
-      <div className="wf-modal-actions">
-        <button
-          type="button"
-          onClick={() => {
-            setShowCategoryModal(false);
-            setNewCategoryName("");
-          }}
-        >
-          Cancelar
-        </button>
-
-        <button
-          type="button"
-          onClick={addCategory}
-        >
-          Crear
-        </button>
+      <div className="sticky-footer">
+        <button type="button" className="cta-button" onClick={handleSave}>Guardar entrenamiento</button>
       </div>
     </div>
-  </div>
-)}
-
-    {/* Footer */}
-    <div className="sticky-footer">
-      <button type="button" className="cta-button" onClick={handleSave}>
-        Guardar entrenamiento
-      </button>
-    </div>
-  </div>
-);
+  );
 }

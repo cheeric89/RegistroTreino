@@ -18,16 +18,14 @@ export function getAllWorkouts() {
 }
 
 /** Guardar un nuevo workout (prepend para tener el más reciente primero) */
-/** Guardar un nuevo workout */
 export function saveWorkout(workout) {
   try {
     const all = getAllWorkouts();
-    // AQUÍ ESTÁ EL CAMBIO: Añadimos el timestamp si no lo tiene
-    const workoutToSave = { 
-      ...workout, 
-      timestamp: workout.timestamp || Date.now() 
+    const workoutToSave = {
+      ...workout,
+      timestamp: workout.timestamp || Date.now(),
     };
-    
+
     const updated = [workoutToSave, ...all];
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     return true;
@@ -41,7 +39,7 @@ export function getRecentWorkouts(n = 5) {
   return getAllWorkouts().slice(0, n);
 }
 
-/** Eliminar un workout por timestamp (para historial futuro) */
+/** Eliminar un workout por timestamp */
 export function deleteWorkout(timestamp) {
   try {
     const filtered = getAllWorkouts().filter((w) => w.timestamp !== timestamp);
@@ -52,19 +50,18 @@ export function deleteWorkout(timestamp) {
   }
 }
 
-/** Devuelve la última vez que se realizó un ejercicio */
+/** Devuelve las series de la sesión más reciente de un ejercicio */
 export function getLastExercisePerformance(exerciseName) {
-  const workouts = getAllWorkouts();
+  const normalizedName = exerciseName?.trim().toLocaleLowerCase("es");
+  if (!normalizedName) return null;
 
-  for (const workout of workouts) {
+  for (const workout of getAllWorkouts()) {
     for (const category of workout.exercises || []) {
       for (const exercise of category.exercises || []) {
         if (
-          exercise.name &&
-          exercise.name.trim().toLowerCase() ===
-            exerciseName.trim().toLowerCase()
+          exercise.name?.trim().toLocaleLowerCase("es") === normalizedName
         ) {
-          return exercise.sets;
+          return exercise.sets || [];
         }
       }
     }
@@ -74,9 +71,6 @@ export function getLastExercisePerformance(exerciseName) {
 }
 
 // ── Persistencia de BORRADOR (entrenamiento en progreso) ───────────
-// A diferencia de getAllWorkouts/saveWorkout (que guardan sesiones YA
-// finalizadas), esto guarda el estado EN VIVO del formulario para que
-// no se pierda si el navegador se cierra o recarga sin querer.
 const DRAFT_KEY = "treino_workout_draft";
 
 /** Guarda (sobrescribe) el borrador actual del formulario */
@@ -88,7 +82,7 @@ export function saveDraftWorkout(draft) {
     );
     return true;
   } catch {
-    return false; // localStorage lleno, modo incógnito, etc.
+    return false;
   }
 }
 
@@ -98,13 +92,12 @@ export function getDraftWorkout() {
     const raw = localStorage.getItem(DRAFT_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
-    // JSON corrupto: lo eliminamos para que no vuelva a fallar siempre
     localStorage.removeItem(DRAFT_KEY);
     return null;
   }
 }
 
-/** Elimina el borrador (tras guardar con éxito o al descartarlo) */
+/** Elimina el borrador tras guardarlo o descartarlo */
 export function clearDraftWorkout() {
   try {
     localStorage.removeItem(DRAFT_KEY);
@@ -115,11 +108,6 @@ export function clearDraftWorkout() {
 }
 
 // ── Persistencia LOCAL del perfil (fallback sin conexión) ──────────
-// Cuando hay sesión activa, useProfile.js prioriza la tabla `user_stats`
-// de Supabase. Esto solo se usa si esa consulta falla (sin red, RLS mal
-// configurado, etc.) o todavía no hay usuario — mismo patrón de
-// fallback que ya usa useWorkouts.js para los entrenamientos.
-
 const PROFILE_KEY = "treino_user_profile";
 
 /** Lee el perfil cacheado localmente, o null si no existe */
@@ -142,21 +130,36 @@ export function saveLocalProfile(profile) {
   }
 }
 
-/** Devuelve todos los nombres de ejercicios únicos */
+/**
+ * Devuelve ejercicios únicos enriquecidos con su grupo muscular y las
+ * series de la sesión más reciente. Como los entrenamientos se guardan
+ * del más nuevo al más antiguo, conservamos la primera aparición.
+ */
 export function getExerciseSuggestions() {
-  const workouts = getAllWorkouts();
+  const exercisesMap = new Map();
 
-  const names = new Set();
-
-  workouts.forEach((workout) => {
+  getAllWorkouts().forEach((workout) => {
     (workout.exercises || []).forEach((category) => {
       (category.exercises || []).forEach((exercise) => {
-        if (exercise.name?.trim()) {
-          names.add(exercise.name.trim());
-        }
+        const name = exercise.name?.trim();
+        if (!name) return;
+
+        const key = name.toLocaleLowerCase("es");
+        if (exercisesMap.has(key)) return;
+
+        exercisesMap.set(key, {
+          name,
+          category: category.name?.trim() || "Sin grupo muscular",
+          lastSets: (exercise.sets || []).map((set) => ({
+            weight: set.weight ?? "",
+            reps: set.reps ?? "",
+          })),
+        });
       });
     });
   });
 
-  return [...names].sort((a, b) => a.localeCompare(b));
+  return [...exercisesMap.values()].sort((a, b) =>
+    a.name.localeCompare(b.name, "es", { sensitivity: "base" })
+  );
 }

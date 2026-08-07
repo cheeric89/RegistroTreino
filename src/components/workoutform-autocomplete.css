@@ -1,0 +1,147 @@
+/* Autocompletado inteligente de ejercicios */
+.wf-suggestions {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 42px;
+  z-index: 500;
+  max-height: min(320px, 50vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: #1b1b22;
+  border: 1px solid rgba(168, 85, 247, 0.38);
+  border-radius: 14px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5);
+}
+
+.wf-suggestion-item {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  padding: 12px 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.wf-suggestion-item + .wf-suggestion-item {
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.wf-suggestion-item:hover,
+.wf-suggestion-item:focus-visible {
+  background: rgba(168, 85, 247, 0.12);
+  outline: none;
+}
+
+.wf-suggestion-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+
+.wf-suggestion-icon {
+  line-height: 1.25;
+}
+
+.wf-suggestion-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.wf-suggestion-name {
+  color: #fff;
+  font-size: 0.93rem;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+.wf-suggestion-highlight {
+  color: #c084fc;
+  font-weight: 850;
+}
+
+.wf-suggestion-category {
+  color: #9ca3af;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.wf-suggestion-sets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 0 27px;
+}
+
+.wf-suggestion-set {
+  padding: 3px 8px;
+  border: 1px solid rgba(168, 85, 247, 0.28);
+  border-radius: 999px;
+  background: rgba(168, 85, 247, 0.12);
+  color: #e9d5ff;
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.wf-copied-banner {
+  margin: -2px 0 12px;
+  padding: 8px 10px;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  border-radius: 10px;
+  background: rgba(168, 85, 247, 0.1);
+  color: #e9d5ff;
+  font-size: 0.78rem;
+  font-weight: 650;
+  animation: wf-banner-in 0.22s ease-out both;
+}
+
+.wf-set-input--copied {
+  border-color: #a855f7 !important;
+  animation: wf-copied-flash 1.15s ease-out both;
+}
+
+@keyframes wf-banner-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes wf-copied-flash {
+  0% {
+    background: rgba(168, 85, 247, 0.32);
+    box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.23);
+  }
+  100% {
+    background: var(--surface);
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .wf-suggestions {
+    right: 36px;
+  }
+
+  .wf-suggestion-item {
+    padding: 11px 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wf-copied-banner,
+  .wf-set-input--copied {
+    animation: none;
+  }
+}
