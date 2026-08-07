@@ -10,7 +10,7 @@ import {
   Trophy,
 } from "lucide-react";
 import { toast } from "sonner";
-import { deleteWorkout, getAllWorkouts } from "../utils/storage";
+import { useWorkoutContext } from "../contexts/WorkoutContext";
 import {
   HISTORY_GROUPS,
   getBestExerciseMarks,
@@ -40,7 +40,7 @@ export default function HistoryPage({
   onOpenWorkout,
   onRepeatWorkout,
 }) {
-  const [workouts, setWorkouts] = useState(() => getAllWorkouts());
+  const { workouts, deleteWorkout } = useWorkoutContext();
   const [activeGroup, setActiveGroup] = useState(initialGroup);
   const [pendingDelete, setPendingDelete] = useState(null);
 
@@ -63,19 +63,20 @@ export default function HistoryPage({
     [groupSessions]
   );
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!pendingDelete) return;
 
-    if (!deleteWorkout(pendingDelete.timestamp)) {
-      toast.error("No se pudo eliminar la sesión");
+    const result = await deleteWorkout(pendingDelete.timestamp);
+    setPendingDelete(null);
+
+    if (result.error) {
+      toast.warning("Sesión eliminada de este dispositivo", {
+        description: "El borrado remoto quedó pendiente y se reintentará al reconectar.",
+      });
       return;
     }
 
-    setWorkouts((current) =>
-      current.filter((item) => item.timestamp !== pendingDelete.timestamp)
-    );
-    setPendingDelete(null);
-    toast.success("Sesión eliminada");
+    toast.success("Sesión eliminada en todos tus dispositivos");
   };
 
   return (

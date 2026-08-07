@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   ArrowRight,
   CalendarDays,
@@ -10,7 +10,7 @@ import {
   Sparkles,
   TrendingUp,
 } from "lucide-react";
-import { getAllWorkouts } from "../utils/storage";
+import { useWorkoutContext } from "../contexts/WorkoutContext";
 import {
   HISTORY_GROUPS,
   getBestExerciseMarks,
@@ -30,7 +30,7 @@ const getDisplayName = (profile, user) =>
   profile?.alias?.trim() || user?.email?.split("@")[0] || "Atleta";
 
 const getWorkoutTimestamp = (workout) => {
-  if (Number.isFinite(workout?.timestamp)) return workout.timestamp;
+  if (Number.isFinite(Number(workout?.timestamp))) return Number(workout.timestamp);
   return 0;
 };
 
@@ -106,7 +106,7 @@ export default function Dashboard({
   onOpenHistory,
   onRepeatWorkout,
 }) {
-  const [workouts] = useState(() => getAllWorkouts());
+  const { workouts, syncing, syncError } = useWorkoutContext();
 
   const dashboardData = useMemo(() => {
     const sorted = [...workouts].sort(
@@ -151,6 +151,13 @@ export default function Dashboard({
           <h1>Haz que cada sesión sume.</h1>
           <p className="dashboard-intro__copy">
             Registra lo que levantas, recupera tus marcas anteriores y mantén visible tu progreso.
+          </p>
+          <p className="dashboard-sync-state" role="status">
+            {syncing
+              ? "Sincronizando entrenamientos…"
+              : syncError
+                ? "Modo offline · tus cambios se sincronizarán al reconectar"
+                : "Historial sincronizado entre tus dispositivos"}
           </p>
         </div>
         <div className="dashboard-streak" aria-label={`${dashboardData.streak} días de racha`}>
