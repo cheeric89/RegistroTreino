@@ -12,6 +12,7 @@ import WorkoutSummary from "./components/workoutsummary";
 import ProfileView from "./components/profile/ProfileView";
 import WorkoutDetail from "./components/WorkoutDetail";
 import ProgressPage from "./components/ProgressPage";
+import HistoryPage from "./components/HistoryPage";
 import AppHeader from "./components/layout/AppHeader";
 import BottomNavigation from "./components/layout/BottomNavigation";
 import BrandLogo from "./components/layout/BrandLogo";
@@ -25,6 +26,7 @@ const VIEWS = {
   SUMMARY: "summary",
   PROGRESS: "progress",
   PROFILE: "profile",
+  HISTORY: "history",
   WORKOUT_DETAIL: "workout_detail",
 };
 
@@ -32,6 +34,7 @@ const CHROME_VIEWS = new Set([
   VIEWS.DASHBOARD,
   VIEWS.PROGRESS,
   VIEWS.PROFILE,
+  VIEWS.HISTORY,
 ]);
 
 export default function App() {
@@ -46,6 +49,8 @@ export default function App() {
   const [workoutStartTime, setWorkoutStartTime] = useState(null);
   const [selectedWorkout, setSelectedWorkout] = useState(null);
   const [repeatWorkout, setRepeatWorkout] = useState(null);
+  const [historyGroup, setHistoryGroup] = useState("push");
+  const [detailReturnView, setDetailReturnView] = useState(VIEWS.DASHBOARD);
 
   useEffect(() => {
     const draft = getDraftWorkout();
@@ -109,8 +114,14 @@ export default function App() {
     navigate(VIEWS.SUMMARY);
   };
 
-  const handleOpenWorkout = (workout) => {
+  const handleOpenHistory = (groupId) => {
+    setHistoryGroup(groupId || "push");
+    navigate(VIEWS.HISTORY);
+  };
+
+  const handleOpenWorkout = (workout, returnView = VIEWS.DASHBOARD) => {
     setSelectedWorkout(workout);
+    setDetailReturnView(returnView);
     navigate(VIEWS.WORKOUT_DETAIL);
   };
 
@@ -123,6 +134,7 @@ export default function App() {
     setSelectedWorkout(null);
     setRepeatWorkout(null);
     setWorkoutStartTime(null);
+    setDetailReturnView(VIEWS.DASHBOARD);
     navigate(VIEWS.DASHBOARD);
   };
 
@@ -172,7 +184,7 @@ export default function App() {
             user={user}
             profile={profile}
             onStart={handleStart}
-            onOpenWorkout={handleOpenWorkout}
+            onOpenHistory={handleOpenHistory}
             onRepeatWorkout={handleRepeatWorkout}
           />
         )}
@@ -181,10 +193,19 @@ export default function App() {
 
         {view === VIEWS.PROFILE && <ProfileView />}
 
+        {view === VIEWS.HISTORY && (
+          <HistoryPage
+            initialGroup={historyGroup}
+            onBack={() => navigate(VIEWS.DASHBOARD)}
+            onOpenWorkout={(workout) => handleOpenWorkout(workout, VIEWS.HISTORY)}
+            onRepeatWorkout={handleRepeatWorkout}
+          />
+        )}
+
         {view === VIEWS.WORKOUT_DETAIL && (
           <WorkoutDetail
             workout={selectedWorkout}
-            onBack={() => navigate(VIEWS.DASHBOARD)}
+            onBack={() => navigate(detailReturnView)}
             onRepeat={handleRepeatWorkout}
           />
         )}
