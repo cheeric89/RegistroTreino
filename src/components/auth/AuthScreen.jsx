@@ -5,7 +5,7 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
-  LockKeyhole,
+  Lock,
   Mail,
   ShieldCheck,
   Sparkles,
@@ -144,7 +144,7 @@ export default function AuthScreen() {
             <label className="auth-field">
               <span>Contraseña</span>
               <div className="auth-input-wrap">
-                <LockKeyhole size={18} />
+                <Lock size={18} />
                 <input
                   type={showPassword ? "text" : "password"}
                   value={password}
