@@ -7,7 +7,7 @@ import {
   LineChart,
   TrendingUp,
 } from "lucide-react";
-import { getAllWorkouts } from "../../utils/storage";
+import { useWorkoutContext } from "../../contexts/WorkoutContext";
 import {
   getCurrentStreak,
   getSessionsInLastDays,
@@ -41,7 +41,7 @@ const getWorkoutVolume = (workout) => {
 const formatVolume = (value) => Math.round(value).toLocaleString("es-CL");
 
 export default function ProgressView() {
-  const workouts = getAllWorkouts();
+  const { workouts } = useWorkoutContext();
   const totalSessions = getTotalSessions(workouts);
   const totalVolume = getTotalVolume(workouts);
   const streak = getCurrentStreak(workouts);
