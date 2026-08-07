@@ -1,76 +1,70 @@
-// src/components/workoutsummary.jsx
-// Programación defensiva completa: todos los accesos a propiedades usan
-// encadenamiento opcional (?.) y valores por defecto (|| 0 / [])
-import { CheckCircle, Flame, BarChart2, Home } from "lucide-react";
+import { BarChart2, CheckCircle, Flame, Home } from "lucide-react";
 
 export default function WorkoutSummary({ workout, onDone }) {
-  // Guard: si no llegan datos, no renderizamos nada
   if (!workout) return null;
 
-  // "exercises" es el array de categorías guardado por WorkoutForm
-  // Soportamos tanto "exercises" como "categories" por compatibilidad retroactiva
-  const exerciseCats = workout.exercises ?? workout.categories ?? [];
+  const exerciseCategories = workout.exercises ?? workout.categories ?? [];
+  const totalSets = exerciseCategories.reduce(
+    (total, category) =>
+      total +
+      (category?.exercises ?? []).reduce(
+        (categoryTotal, exercise) => categoryTotal + (exercise?.sets?.length ?? 0),
+        0
+      ),
+    0
+  );
 
-  // ── Cálculo defensivo de totales ──────────────────────
-  const totalSets = exerciseCats.reduce((acc, cat) => {
-    const catSets = (cat?.exercises ?? []).reduce(
-      (a, ex) => a + (ex?.sets?.length ?? 0),
-      0
-    );
-    return acc + catSets;
-  }, 0);
+  const totalVolume = exerciseCategories.reduce(
+    (total, category) =>
+      total +
+      (category?.exercises ?? []).reduce(
+        (categoryTotal, exercise) =>
+          categoryTotal +
+          (exercise?.sets ?? []).reduce(
+            (setTotal, set) =>
+              setTotal + (Number(set?.weight) || 0) * (Number(set?.reps) || 0),
+            0
+          ),
+        0
+      ),
+    0
+  );
 
-  const totalVolume = exerciseCats.reduce((acc, cat) => {
-    const catVol = (cat?.exercises ?? []).reduce((a, ex) => {
-      const exVol = (ex?.sets ?? []).reduce((s, set) => {
-        const w = parseFloat(set?.weight) || 0;
-        const r = parseInt(set?.reps, 10) || 0;
-        return s + w * r;
-      }, 0);
-      return a + exVol;
-    }, 0);
-    return acc + catVol;
-  }, 0);
-
-  const totalExercises = exerciseCats.reduce(
-    (acc, cat) => acc + (cat?.exercises?.length ?? 0),
+  const totalExercises = exerciseCategories.reduce(
+    (total, category) => total + (category?.exercises?.length ?? 0),
     0
   );
 
   return (
-    <div className="screen summary-screen">
-      {/* Éxito hero */}
+    <div className="screen summary-screen flow-screen">
       <div className="summary-hero">
         <div className="success-ring">
           <CheckCircle size={36} className="success-icon" />
         </div>
+        <span className="page-eyebrow">Entrenamiento guardado</span>
         <h1 className="summary-title">¡Sesión completada!</h1>
         <p className="summary-sub">
           {workout.day ?? "Entrenamiento"} · {workout.date ?? ""}
         </p>
       </div>
 
-      {/* Stats rápidas */}
       <div className="stats-row">
         <div className="stat-card">
           <span className="stat-num">{totalSets}</span>
           <span className="stat-label">Series</span>
         </div>
         <div className="stat-card">
-          <span className="stat-num">{exerciseCats.length}</span>
+          <span className="stat-num">{exerciseCategories.length}</span>
           <span className="stat-label">Músculos</span>
         </div>
         <div className="stat-card">
           <span className="stat-num">
-            {totalVolume > 0
-              ? totalVolume.toLocaleString("es-CL")
-              : "—"}
+            {totalVolume > 0 ? totalVolume.toLocaleString("es-CL") : "—"}
           </span>
           <span className="stat-label">Vol. kg</span>
         </div>
       </div>
 
-      {/* Calentamiento (opcional) */}
       {workout.warmup && (workout.warmup.weight || workout.warmup.reps) && (
         <div className="summary-block">
           <div className="summary-block-header">
@@ -84,7 +78,6 @@ export default function WorkoutSummary({ workout, onDone }) {
         </div>
       )}
 
-      {/* Desglose por categoría */}
       <div className="summary-block">
         <div className="summary-block-header">
           <BarChart2 size={14} className="summary-icon" />
@@ -94,48 +87,37 @@ export default function WorkoutSummary({ workout, onDone }) {
           </span>
         </div>
 
-        {exerciseCats.length === 0 && (
-          <p style={{ color: "var(--text-3)", fontSize: 14 }}>
-            No se registraron ejercicios.
-          </p>
+        {exerciseCategories.length === 0 && (
+          <p className="summary-empty-copy">No se registraron ejercicios.</p>
         )}
 
-        {exerciseCats.map((cat, ci) => (
-          <div key={ci} className="summary-cat">
+        {exerciseCategories.map((category, categoryIndex) => (
+          <div key={`${category?.name}-${categoryIndex}`} className="summary-cat">
             <div className="summary-cat-name">
               <span className="cat-dot cat-dot--sm" />
-              {cat?.name ?? "Sin nombre"}
+              {category?.name ?? "Sin nombre"}
             </div>
 
-            {(cat?.exercises ?? []).length === 0 && (
-              <p style={{ color: "var(--text-3)", fontSize: 13, paddingLeft: 16 }}>
-                Sin ejercicios.
-              </p>
+            {(category?.exercises ?? []).length === 0 && (
+              <p className="summary-empty-copy summary-empty-copy--indented">Sin ejercicios.</p>
             )}
 
-            {(cat?.exercises ?? []).map((ex, ei) => {
-              const sets = ex?.sets ?? [];
-              const doneSets = sets.filter((s) => s?.done).length;
+            {(category?.exercises ?? []).map((exercise, exerciseIndex) => {
+              const sets = exercise?.sets ?? [];
+              const doneSets = sets.filter((set) => set?.done).length;
               return (
-                <div key={ei} className="summary-exercise">
+                <div key={`${exercise?.name}-${exerciseIndex}`} className="summary-exercise">
                   <div className="summary-ex-row">
-                    <span className="summary-ex-name">{ex?.name ?? "Ejercicio"}</span>
-                    <span className="summary-ex-sets">
-                      {doneSets}/{sets.length} series
-                    </span>
+                    <span className="summary-ex-name">{exercise?.name ?? "Ejercicio"}</span>
+                    <span className="summary-ex-sets">{doneSets}/{sets.length} series</span>
                   </div>
                   <div className="summary-sets-list">
-                    {sets.map((s, si) => (
+                    {sets.map((set, setIndex) => (
                       <span
-                        key={si}
-                        className="summary-set-chip"
-                        style={
-                          s?.done
-                            ? { borderColor: "var(--success)", color: "var(--success)" }
-                            : {}
-                        }
+                        key={`${setIndex}-${set?.weight}-${set?.reps}`}
+                        className={`summary-set-chip ${set?.done ? "summary-set-chip--done" : ""}`}
                       >
-                        {s?.reps || "—"}×{s?.weight ? `${s.weight}kg` : "—"}
+                        {set?.reps || "—"}×{set?.weight ? `${set.weight}kg` : "—"}
                       </span>
                     ))}
                   </div>
@@ -146,7 +128,6 @@ export default function WorkoutSummary({ workout, onDone }) {
         ))}
       </div>
 
-      {/* Footer */}
       <div className="sticky-footer">
         <button type="button" className="cta-button" onClick={onDone}>
           <Home size={18} />

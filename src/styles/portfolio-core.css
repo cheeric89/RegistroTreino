@@ -1,0 +1,395 @@
+/* ═══════════════════════════════════════════════════════════════
+   TREINO — Portfolio redesign
+   Capa visual aplicada después de styles.css para conservar la lógica
+   y modernizar layout, dashboard, autenticación y navegación.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  --bg: #0b0b10;
+  --surface: #15151d;
+  --surface-2: #1c1c27;
+  --surface-3: #252535;
+  --border: #2b2b3a;
+  --border-strong: #3a3a4f;
+  --primary: #8b5cf6;
+  --primary-hover: #9d72ff;
+  --primary-dim: #6d28d9;
+  --primary-glow: rgba(139, 92, 246, 0.2);
+  --accent: #c4b5fd;
+  --text-1: #f8fafc;
+  --text-2: #a9adba;
+  --text-3: #717789;
+  --danger: #f87171;
+  --success: #34d399;
+  --shadow-sm: 0 12px 30px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 26px 70px rgba(0, 0, 0, 0.38);
+  --content-width: 1120px;
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  background:
+    radial-gradient(circle at 10% -10%, rgba(124, 58, 237, 0.12), transparent 34rem),
+    var(--bg);
+}
+
+button,
+a,
+input {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.app-root {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  height: 100dvh;
+  background: transparent;
+}
+
+.app-main {
+  width: 100%;
+  background: transparent;
+}
+
+.app-main--shell {
+  padding-bottom: calc(78px + env(safe-area-inset-bottom));
+}
+
+.app-main--immersive {
+  background: rgba(11, 11, 16, 0.72);
+}
+
+.page-shell {
+  width: min(100%, var(--content-width));
+  margin: 0 auto;
+  padding: 28px 18px 110px;
+}
+
+.page-eyebrow,
+.card-kicker,
+.auth-eyebrow {
+  display: block;
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.page-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.page-heading h1 {
+  margin: 6px 0 7px;
+  font-size: clamp(2rem, 6vw, 3rem);
+  line-height: 1;
+  letter-spacing: -0.045em;
+}
+
+.page-heading p {
+  max-width: 590px;
+  color: var(--text-2);
+  font-size: 0.95rem;
+}
+
+.page-heading__icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  color: var(--accent);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: 16px;
+  background: rgba(139, 92, 246, 0.1);
+}
+
+/* ── Brand ─────────────────────────────────────────────── */
+.brand-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  color: var(--text-1);
+}
+
+.brand-logo__mark {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  background: linear-gradient(145deg, #a855f7, #6d28d9);
+  box-shadow: 0 10px 26px rgba(109, 40, 217, 0.3);
+}
+
+.brand-logo__wordmark {
+  font-size: 1.12rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.brand-logo__wordmark span {
+  color: var(--accent);
+}
+
+.brand-logo--compact {
+  gap: 9px;
+}
+
+.brand-logo--compact .brand-logo__mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+}
+
+.brand-logo--compact .brand-logo__wordmark {
+  font-size: 0.98rem;
+}
+
+/* ── Global header and navigation ─────────────────────── */
+.app-shell-header {
+  position: relative;
+  z-index: 30;
+  flex: 0 0 auto;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(11, 11, 16, 0.82);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.app-shell-header__inner {
+  width: min(100%, var(--content-width));
+  height: 68px;
+  margin: 0 auto;
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.brand-button,
+.header-avatar,
+.desktop-navigation__item,
+.bottom-navigation__item {
+  border: 0;
+  font: inherit;
+}
+
+.brand-button {
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.header-avatar {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  color: white;
+  border: 1px solid rgba(196, 181, 253, 0.3);
+  border-radius: 50%;
+  background: linear-gradient(145deg, #37304d, #221d32);
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.desktop-navigation {
+  display: none;
+  align-items: center;
+  gap: 5px;
+  padding: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.desktop-navigation__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px;
+  color: var(--text-2);
+  border-radius: 10px;
+  background: transparent;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 160ms ease;
+}
+
+.desktop-navigation__item:hover,
+.desktop-navigation__item.is-active {
+  color: white;
+  background: rgba(139, 92, 246, 0.15);
+}
+
+.desktop-navigation__item.is-active svg {
+  color: var(--accent);
+}
+
+.bottom-navigation {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(16, 16, 23, 0.92);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.bottom-navigation__inner {
+  max-width: 480px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.bottom-navigation__item {
+  min-width: 0;
+  padding: 6px 3px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-3);
+  border-radius: 12px;
+  background: transparent;
+  font-size: 0.65rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.bottom-navigation__icon {
+  width: 32px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+}
+
+.bottom-navigation__item.is-active {
+  color: white;
+}
+
+.bottom-navigation__item.is-active .bottom-navigation__icon {
+  color: var(--accent);
+  background: rgba(139, 92, 246, 0.14);
+}
+
+.bottom-navigation__item--action .bottom-navigation__icon {
+  width: 40px;
+  height: 32px;
+  margin-top: -4px;
+  color: white;
+  background: linear-gradient(145deg, var(--primary), var(--primary-dim));
+  box-shadow: 0 8px 22px rgba(109, 40, 217, 0.32);
+}
+
+/* ── Shared buttons and headings ───────────────────────── */
+.primary-action-button,
+.secondary-action-button,
+.dialog-button,
+.profile-logout-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border-radius: 13px;
+  font-size: 0.88rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 130ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.primary-action-button {
+  min-height: 46px;
+  padding: 0 17px;
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(145deg, var(--primary), var(--primary-dim));
+  box-shadow: 0 12px 28px rgba(109, 40, 217, 0.28);
+}
+
+.primary-action-button svg:last-child {
+  margin-left: auto;
+}
+
+.primary-action-button:hover {
+  background: linear-gradient(145deg, var(--primary-hover), #7c3aed);
+}
+
+.secondary-action-button,
+.dialog-button {
+  min-height: 42px;
+  padding: 0 15px;
+  color: var(--text-1);
+  border: 1px solid var(--border-strong);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.secondary-action-button:hover,
+.dialog-button:hover {
+  border-color: rgba(139, 92, 246, 0.65);
+  background: rgba(139, 92, 246, 0.08);
+}
+
+.primary-action-button:active,
+.secondary-action-button:active,
+.dialog-button:active {
+  transform: scale(0.98);
+}
+
+.primary-action-button:disabled,
+.secondary-action-button:disabled,
+.dialog-button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.section-heading h2 {
+  margin-top: 4px;
+  font-size: 1.25rem;
+  letter-spacing: -0.025em;
+}
+
+.section-heading > svg {
+  color: var(--accent);
+}
+
+.section-heading--compact {
+  margin-bottom: 18px;
+}
+
