@@ -13,6 +13,7 @@ import "./styles/portfolio-workout.css";
 import "./styles/portfolio-fixes.css";
 import "./styles/portfolio-records.css";
 import "./styles/portfolio-history.css";
+import "./styles/portfolio-sync.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
