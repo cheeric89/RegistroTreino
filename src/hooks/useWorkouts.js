@@ -1,110 +1,230 @@
-// src/hooks/useWorkouts.js
-// Data access layer — wraps Supabase queries for workouts.
-// Keeps localStorage as a FALLBACK so the app keeps working
-// even before you run the Supabase migrations (offline-first during dev).
-//
-// SUPABASE TABLE SCHEMA (run this SQL in Supabase SQL editor):
-// ─────────────────────────────────────────────────────────────
-//   create table public.workouts (
-//     id          uuid primary key default gen_random_uuid(),
-//     user_id     uuid not null references auth.users(id) on delete cascade,
-//     day         text not null,
-//     date        text not null,
-//     timestamp   bigint not null,
-//     exercises   jsonb not null default '[]',
-//     categories  jsonb not null default '[]',
-//     created_at  timestamptz default now()
-//   );
-//
-//   -- Row Level Security: users can only see/edit their own rows
-//   alter table public.workouts enable row level security;
-//
-//   create policy "Users manage own workouts"
-//     on public.workouts
-//     for all
-//     using  (auth.uid() = user_id)
-//     with check (auth.uid() = user_id);
-// ─────────────────────────────────────────────────────────────
-
-import { useState, useCallback } from "react";
+import { useCallback, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import {
-  getAllWorkouts as localGetAll,
-  saveWorkout as localSave,
+  clearLegacyWorkouts,
   deleteWorkout as localDelete,
+  getAllWorkouts as localGetAll,
+  getLegacyWorkouts,
+  getWorkoutSyncQueue,
+  hasMigratedLegacyWorkouts,
+  markLegacyWorkoutsMigrated,
+  queueWorkoutSyncOperation,
+  removeWorkoutSyncOperation,
+  replaceAllWorkouts,
+  saveWorkout as localSave,
+  setActiveWorkoutUser,
 } from "../utils/storage";
 
 const TABLE = "workouts";
+
+const normalizeWorkout = (row = {}) => ({
+  day: row.day || "Entrenamiento",
+  date: row.date || "",
+  timestamp: Number(row.timestamp) || Date.now(),
+  duration: Number(row.duration) || 0,
+  volume: Number(row.volume) || 0,
+  exercises: Array.isArray(row.exercises) ? row.exercises : [],
+  categories: Array.isArray(row.categories) ? row.categories : [],
+});
+
+const toPayload = (workout, userId) => {
+  const normalized = normalizeWorkout(workout);
+  return {
+    user_id: userId,
+    day: normalized.day,
+    date: normalized.date,
+    timestamp: normalized.timestamp,
+    duration: normalized.duration,
+    volume: normalized.volume,
+    exercises: normalized.exercises,
+    categories: normalized.categories,
+  };
+};
+
+const mergeByTimestamp = (...collections) => {
+  const map = new Map();
+  collections.flat().forEach((workout) => {
+    const timestamp = Number(workout?.timestamp);
+    if (!Number.isFinite(timestamp)) return;
+    map.set(timestamp, normalizeWorkout(workout));
+  });
+  return [...map.values()].sort((a, b) => b.timestamp - a.timestamp);
+};
 
 export function useWorkouts() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  /** Fetch all workouts for the current user (newest first) */
-  const fetchWorkouts = useCallback(async () => {
-    if (!user) return localGetAll(); // not logged in → local only
+  const flushPendingOperations = useCallback(async (userId) => {
+    const queue = getWorkoutSyncQueue(userId);
 
+    for (const operation of queue) {
+      let err = null;
+
+      if (operation.type === "delete") {
+        const result = await supabase
+          .from(TABLE)
+          .delete()
+          .eq("user_id", userId)
+          .eq("timestamp", Number(operation.timestamp));
+        err = result.error;
+      } else if (operation.type === "upsert" && operation.workout) {
+        const result = await supabase
+          .from(TABLE)
+          .upsert(toPayload(operation.workout, userId), {
+            onConflict: "user_id,timestamp",
+          });
+        err = result.error;
+      }
+
+      if (!err) {
+        removeWorkoutSyncOperation(userId, operation.timestamp);
+      }
+    }
+  }, []);
+
+  const migrateLegacyWorkouts = useCallback(async (userId) => {
+    if (hasMigratedLegacyWorkouts(userId)) return { migrated: true, error: null };
+
+    const legacy = getLegacyWorkouts();
+    if (!legacy.length) {
+      markLegacyWorkoutsMigrated(userId);
+      return { migrated: true, error: null };
+    }
+
+    const { error: migrationError } = await supabase
+      .from(TABLE)
+      .upsert(legacy.map((workout) => toPayload(workout, userId)), {
+        onConflict: "user_id,timestamp",
+      });
+
+    if (migrationError) {
+      return { migrated: false, error: migrationError };
+    }
+
+    markLegacyWorkoutsMigrated(userId);
+    clearLegacyWorkouts();
+    return { migrated: true, error: null };
+  }, []);
+
+  /**
+   * Supabase es la fuente compartida. localStorage es cache y respaldo offline.
+   * La primera vez, los entrenamientos antiguos del navegador se migran a la cuenta.
+   */
+  const fetchWorkouts = useCallback(async () => {
+    if (!user) {
+      setActiveWorkoutUser(null);
+      return [];
+    }
+
+    const userId = user.id;
+    setActiveWorkoutUser(userId);
     setLoading(true);
     setError(null);
 
-    const { data, error: err } = await supabase
+    const localCache = localGetAll(userId);
+    const legacy = hasMigratedLegacyWorkouts(userId) ? [] : getLegacyWorkouts();
+
+    const migration = await migrateLegacyWorkouts(userId);
+    if (migration.error) {
+      console.warn("[useWorkouts] migracion local pendiente:", migration.error.message);
+    }
+
+    await flushPendingOperations(userId);
+
+    const { data, error: fetchError } = await supabase
       .from(TABLE)
-      .select("*")
-      .eq("user_id", user.id)
+      .select("day,date,timestamp,duration,volume,exercises,categories")
+      .eq("user_id", userId)
       .order("timestamp", { ascending: false });
 
     setLoading(false);
 
-    if (err) {
-      console.warn("[useWorkouts] Supabase fetch failed, using localStorage:", err.message);
-      setError(err.message);
-      return localGetAll(); // graceful fallback
+    if (fetchError) {
+      console.warn("[useWorkouts] Supabase no disponible, usando cache:", fetchError.message);
+      setError(fetchError.message);
+      const fallback = mergeByTimestamp(localCache, legacy);
+      replaceAllWorkouts(fallback, userId);
+      return fallback;
     }
 
-    return data ?? [];
-  }, [user]);
+    const remote = (data || []).map(normalizeWorkout);
+    replaceAllWorkouts(remote, userId);
+    return remote;
+  }, [flushPendingOperations, migrateLegacyWorkouts, user]);
 
-  /** Save a workout to Supabase (and locally as backup) */
+  /** Guardado instantaneo local + upsert remoto. */
   const saveWorkout = useCallback(async (workout) => {
-    // Always save locally first (instant, works offline)
-    localSave(workout);
+    const normalized = normalizeWorkout(workout);
 
-    if (!user) return { error: null }; // guest mode: local only
-
-    const payload = {
-      ...workout,
-      user_id: user.id,
-      timestamp: workout.timestamp || Date.now(),
-    };
-
-    const { error: err } = await supabase.from(TABLE).insert(payload);
-
-    if (err) {
-      console.warn("[useWorkouts] Supabase save failed:", err.message);
-      return { error: err.message };
+    if (!user) {
+      localSave(normalized);
+      return { error: null, synced: false };
     }
 
-    return { error: null };
+    const userId = user.id;
+    setActiveWorkoutUser(userId);
+    localSave(normalized, userId);
+
+    const { error: saveError } = await supabase
+      .from(TABLE)
+      .upsert(toPayload(normalized, userId), {
+        onConflict: "user_id,timestamp",
+      });
+
+    if (saveError) {
+      queueWorkoutSyncOperation(userId, {
+        type: "upsert",
+        timestamp: normalized.timestamp,
+        workout: normalized,
+      });
+      setError(saveError.message);
+      console.warn("[useWorkouts] guardado remoto pendiente:", saveError.message);
+      return { error: saveError.message, synced: false };
+    }
+
+    removeWorkoutSyncOperation(userId, normalized.timestamp);
+    return { error: null, synced: true };
   }, [user]);
 
-  /** Delete a workout by timestamp */
+  /** Eliminacion local inmediata + borrado remoto o cola offline. */
   const deleteWorkout = useCallback(async (timestamp) => {
-    localDelete(timestamp); // remove locally
+    const numericTimestamp = Number(timestamp);
 
-    if (!user) return;
+    if (!user) {
+      localDelete(numericTimestamp);
+      return { error: null, synced: false };
+    }
 
-    const { error: err } = await supabase
+    const userId = user.id;
+    localDelete(numericTimestamp, userId);
+
+    const { error: deleteError } = await supabase
       .from(TABLE)
       .delete()
-      .eq("user_id", user.id)
-      .eq("timestamp", timestamp);
+      .eq("user_id", userId)
+      .eq("timestamp", numericTimestamp);
 
-    if (err) {
-      console.warn("[useWorkouts] Supabase delete failed:", err.message);
+    if (deleteError) {
+      queueWorkoutSyncOperation(userId, {
+        type: "delete",
+        timestamp: numericTimestamp,
+      });
+      setError(deleteError.message);
+      return { error: deleteError.message, synced: false };
     }
+
+    removeWorkoutSyncOperation(userId, numericTimestamp);
+    return { error: null, synced: true };
   }, [user]);
 
-  return { fetchWorkouts, saveWorkout, deleteWorkout, loading, error };
+  return {
+    fetchWorkouts,
+    saveWorkout,
+    deleteWorkout,
+    loading,
+    error,
+  };
 }
