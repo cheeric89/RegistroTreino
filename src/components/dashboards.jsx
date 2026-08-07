@@ -5,15 +5,17 @@ import {
   Clock3,
   Dumbbell,
   Flame,
-  MoreVertical,
   Play,
   RotateCcw,
   Sparkles,
-  Trash2,
   TrendingUp,
 } from "lucide-react";
-import { toast } from "sonner";
-import { deleteWorkout, getAllWorkouts } from "../utils/storage";
+import { getAllWorkouts } from "../utils/storage";
+import {
+  HISTORY_GROUPS,
+  getBestExerciseMarks,
+  groupWorkouts,
+} from "../utils/workoutHistory";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -97,9 +99,14 @@ const calculateStreak = (workouts) => {
   return streak;
 };
 
-export default function Dashboard({ user, profile, onStart, onOpenWorkout, onRepeatWorkout }) {
-  const [workouts, setWorkouts] = useState(() => getAllWorkouts());
-  const [pendingDelete, setPendingDelete] = useState(null);
+export default function Dashboard({
+  user,
+  profile,
+  onStart,
+  onOpenHistory,
+  onRepeatWorkout,
+}) {
+  const [workouts] = useState(() => getAllWorkouts());
 
   const dashboardData = useMemo(() => {
     const sorted = [...workouts].sort(
@@ -107,30 +114,29 @@ export default function Dashboard({ user, profile, onStart, onOpenWorkout, onRep
     );
     const sevenDaysAgo = Date.now() - 7 * DAY_MS;
     const week = sorted.filter((workout) => getWorkoutTimestamp(workout) >= sevenDaysAgo);
+    const grouped = groupWorkouts(sorted);
+
+    const historyGroups = HISTORY_GROUPS.map((group) => {
+      const sessions = grouped[group.id] || [];
+      const bestMark = getBestExerciseMarks(sessions, 1)[0] || null;
+      return {
+        ...group,
+        count: sessions.length,
+        latest: sessions[0] || null,
+        bestMark,
+      };
+    });
 
     return {
-      recent: sorted.slice(0, 4),
       latest: sorted[0] || null,
       sessions: week.length,
       volume: week.reduce((total, workout) => total + getWorkoutVolume(workout), 0),
       duration: week.reduce((total, workout) => total + getWorkoutDuration(workout), 0),
       streak: calculateStreak(sorted),
+      historyGroups,
+      totalWorkouts: sorted.length,
     };
   }, [workouts]);
-
-  const confirmDelete = () => {
-    if (!pendingDelete) return;
-    const deleted = deleteWorkout(pendingDelete.timestamp);
-    if (deleted) {
-      setWorkouts((current) =>
-        current.filter((workout) => workout.timestamp !== pendingDelete.timestamp)
-      );
-      toast.success("Sesión eliminada");
-    } else {
-      toast.error("No se pudo eliminar la sesión");
-    }
-    setPendingDelete(null);
-  };
 
   const displayName = getDisplayName(profile, user);
   const latestCategories = getCategories(dashboardData.latest);
@@ -227,69 +233,48 @@ export default function Dashboard({ user, profile, onStart, onOpenWorkout, onRep
         </section>
       )}
 
-      <section className="recent-workouts-section">
+      <section className="history-overview-section">
         <div className="section-heading">
           <div>
-            <span className="card-kicker">Historial reciente</span>
-            <h2>Últimas sesiones</h2>
+            <span className="card-kicker">Tu historial</span>
+            <h2>Push / Pull / Legs</h2>
           </div>
           <Sparkles size={20} />
         </div>
 
-        {dashboardData.recent.length > 0 ? (
-          <div className="recent-workouts-grid">
-            {dashboardData.recent.map((workout, index) => {
-              const categories = getCategories(workout);
-              return (
-                <article
-                  key={workout.timestamp || `${workout.day}-${index}`}
-                  className="recent-workout-card"
-                >
-                  <button
-                    type="button"
-                    className="recent-workout-card__main"
-                    onClick={() => onOpenWorkout(workout)}
-                  >
-                    <div className="recent-workout-card__topline">
-                      <span className="recent-workout-card__day">
-                        {workout.day || "Entrenamiento"}
-                      </span>
-                      <span className="recent-workout-card__date">
-                        {workout.date || "Sin fecha"}
-                      </span>
-                    </div>
-                    <div className="recent-workout-card__categories">
-                      {categories.length > 0 ? (
-                        categories.slice(0, 3).map((category) => (
-                          <span key={category}>{category}</span>
-                        ))
-                      ) : (
-                        <span>Rutina personalizada</span>
-                      )}
-                    </div>
-                    <div className="recent-workout-card__stats">
-                      <span>
-                        <Clock3 size={14} />
-                        {formatDuration(getWorkoutDuration(workout))}
-                      </span>
-                      <span>
-                        <Dumbbell size={14} />
-                        {Math.round(getWorkoutVolume(workout)).toLocaleString("es-CL")} kg
-                      </span>
-                    </div>
-                  </button>
+        {dashboardData.totalWorkouts > 0 ? (
+          <div className="history-overview-grid">
+            {dashboardData.historyGroups.map((group) => (
+              <button
+                key={group.id}
+                type="button"
+                className={`history-overview-card history-overview-card--${group.id}`}
+                onClick={() => onOpenHistory?.(group.id)}
+              >
+                <div className="history-overview-card__topline">
+                  <span>{group.label}</span>
+                  <strong>{group.count}</strong>
+                </div>
 
-                  <button
-                    type="button"
-                    className="recent-workout-card__menu"
-                    onClick={() => setPendingDelete(workout)}
-                    aria-label={`Eliminar sesión ${workout.day || "guardada"}`}
-                  >
-                    <MoreVertical size={18} />
-                  </button>
-                </article>
-              );
-            })}
+                <p>{group.subtitle}</p>
+
+                <div className="history-overview-card__footer">
+                  <div>
+                    <small>Última sesión</small>
+                    <span>{group.latest?.date || "Sin registros"}</span>
+                  </div>
+                  <div>
+                    <small>Marca destacada</small>
+                    <span>
+                      {group.bestMark
+                        ? `${group.bestMark.weight || 0} kg × ${group.bestMark.reps || 0}`
+                        : "—"}
+                    </span>
+                  </div>
+                  <ArrowRight size={17} />
+                </div>
+              </button>
+            ))}
           </div>
         ) : (
           <div className="dashboard-empty-state">
@@ -297,42 +282,13 @@ export default function Dashboard({ user, profile, onStart, onOpenWorkout, onRep
               <Dumbbell size={24} />
             </div>
             <h3>Tu historial empieza aquí</h3>
-            <p>Completa tu primera sesión para ver estadísticas y recuperar tus marcas.</p>
+            <p>Completa tu primera sesión para organizarla automáticamente y recuperar tus marcas.</p>
             <button type="button" className="secondary-action-button" onClick={onStart}>
               Crear primera sesión
             </button>
           </div>
         )}
       </section>
-
-      {pendingDelete && (
-        <div className="dialog-backdrop" role="presentation" onMouseDown={() => setPendingDelete(null)}>
-          <div
-            className="confirmation-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="delete-workout-title"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <div className="confirmation-dialog__icon confirmation-dialog__icon--danger">
-              <Trash2 size={22} />
-            </div>
-            <h2 id="delete-workout-title">¿Eliminar esta sesión?</h2>
-            <p>
-              Se eliminará “{pendingDelete.day || "Entrenamiento"}” del {pendingDelete.date || "historial"}.
-              Esta acción no se puede deshacer.
-            </p>
-            <div className="confirmation-dialog__actions">
-              <button type="button" className="dialog-button" onClick={() => setPendingDelete(null)}>
-                Cancelar
-              </button>
-              <button type="button" className="dialog-button dialog-button--danger" onClick={confirmDelete}>
-                Eliminar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
