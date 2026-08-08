@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "./contexts/AuthContext";
 import { useProfile } from "./hooks/useProfile";
 import { clearDraftWorkout, getDraftWorkout } from "./utils/storage";
+import { routineToTemplateCategories } from "./utils/routines";
 import AuthScreen from "./components/auth/AuthScreen";
 import Dashboard from "./components/dashboards";
 import DaySelector from "./components/dayselector";
@@ -11,8 +12,10 @@ import WorkoutForm from "./components/workoutform";
 import WorkoutSummary from "./components/workoutsummary";
 import ProfileView from "./components/profile/ProfileView";
 import WorkoutDetail from "./components/WorkoutDetail";
+import WorkoutEditor from "./components/WorkoutEditor";
 import ProgressPage from "./components/ProgressPage";
 import HistoryPage from "./components/HistoryPage";
+import RoutinesManager from "./components/routines/RoutinesManager";
 import AppHeader from "./components/layout/AppHeader";
 import BottomNavigation from "./components/layout/BottomNavigation";
 import BrandLogo from "./components/layout/BrandLogo";
@@ -28,6 +31,8 @@ const VIEWS = {
   PROFILE: "profile",
   HISTORY: "history",
   WORKOUT_DETAIL: "workout_detail",
+  WORKOUT_EDIT: "workout_edit",
+  ROUTINES: "routines",
 };
 
 const CHROME_VIEWS = new Set([
@@ -35,7 +40,10 @@ const CHROME_VIEWS = new Set([
   VIEWS.PROGRESS,
   VIEWS.PROFILE,
   VIEWS.HISTORY,
+  VIEWS.ROUTINES,
 ]);
+
+const PERSONAL_TYPES = new Set(["push", "pull", "legs"]);
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -51,6 +59,8 @@ export default function App() {
   const [repeatWorkout, setRepeatWorkout] = useState(null);
   const [historyGroup, setHistoryGroup] = useState("push");
   const [detailReturnView, setDetailReturnView] = useState(VIEWS.DASHBOARD);
+  const [routineReturnView, setRoutineReturnView] = useState(VIEWS.DASHBOARD);
+  const [routineInitialType, setRoutineInitialType] = useState("push");
 
   useEffect(() => {
     const draft = getDraftWorkout();
@@ -70,8 +80,20 @@ export default function App() {
     setSelectedTemplate(null);
     setTemplateCategories([]);
     setSelectedCategories([]);
-    setWorkoutStartTime(Date.now());
+    setWorkoutStartTime(null);
     navigate(VIEWS.TEMPLATE_SELECTOR);
+  };
+
+  const handleStartRoutine = (routine) => {
+    if (!routine || !PERSONAL_TYPES.has(routine.type)) return;
+    clearDraftWorkout();
+    setRepeatWorkout(null);
+    setSelectedTemplate({ ...routine, id: routine.type });
+    setSelectedDay(routine.name || routine.type);
+    setSelectedCategories((routine.categories || []).map((category) => category.name));
+    setTemplateCategories(routineToTemplateCategories(routine));
+    setWorkoutStartTime(Date.now());
+    navigate(VIEWS.WORKOUT_FORM);
   };
 
   const handleRepeatWorkout = (workout) => {
@@ -81,25 +103,26 @@ export default function App() {
     setSelectedDay(workout.day || "Entrenamiento");
     setSelectedCategories(workout.categories || []);
     setTemplateCategories(workout.exercises || []);
+    setSelectedTemplate(null);
     setWorkoutStartTime(Date.now());
     navigate(VIEWS.WORKOUT_FORM);
   };
 
   const handleTemplateSelected = (template) => {
-    setSelectedTemplate(template);
-    setTemplateCategories(template.categories || []);
+    if (PERSONAL_TYPES.has(template?.type)) {
+      handleStartRoutine(template);
+      return;
+    }
+
+    setSelectedTemplate({ ...template, id: "custom", type: "custom" });
+    setTemplateCategories([]);
+    setSelectedCategories([]);
     navigate(VIEWS.DAY_SELECTOR);
   };
 
   const handleDaySelected = (day) => {
     setSelectedDay(day);
     setWorkoutStartTime(Date.now());
-
-    if (selectedTemplate && selectedTemplate.id !== "custom") {
-      navigate(VIEWS.WORKOUT_FORM);
-      return;
-    }
-
     navigate(VIEWS.CATEGORY_SELECTOR);
   };
 
@@ -125,6 +148,22 @@ export default function App() {
     navigate(VIEWS.WORKOUT_DETAIL);
   };
 
+  const handleEditWorkout = (workout) => {
+    setSelectedWorkout(workout);
+    navigate(VIEWS.WORKOUT_EDIT);
+  };
+
+  const handleWorkoutEdited = (workout) => {
+    setSelectedWorkout(workout);
+    navigate(VIEWS.WORKOUT_DETAIL);
+  };
+
+  const handleManageRoutines = (type = "push") => {
+    setRoutineInitialType(PERSONAL_TYPES.has(type) ? type : "push");
+    setRoutineReturnView(view === VIEWS.TEMPLATE_SELECTOR ? VIEWS.TEMPLATE_SELECTOR : VIEWS.DASHBOARD);
+    navigate(VIEWS.ROUTINES);
+  };
+
   const handleReset = () => {
     setSelectedDay(null);
     setSelectedCategories([]);
@@ -144,8 +183,8 @@ export default function App() {
       return;
     }
 
-    if (selectedTemplate && selectedTemplate.id !== "custom") {
-      navigate(VIEWS.DAY_SELECTOR);
+    if (PERSONAL_TYPES.has(selectedTemplate?.type)) {
+      navigate(VIEWS.TEMPLATE_SELECTOR);
       return;
     }
 
@@ -161,21 +200,14 @@ export default function App() {
     );
   }
 
-  if (!user) {
-    return <AuthScreen />;
-  }
+  if (!user) return <AuthScreen />;
 
   const showChrome = CHROME_VIEWS.has(view);
 
   return (
     <div className="app-root">
       {showChrome && (
-        <AppHeader
-          currentView={view}
-          onNavigate={navigate}
-          user={user}
-          profile={profile}
-        />
+        <AppHeader currentView={view} onNavigate={navigate} user={user} profile={profile} />
       )}
 
       <main className={`app-main ${showChrome ? "app-main--shell" : "app-main--immersive"}`}>
@@ -184,14 +216,22 @@ export default function App() {
             user={user}
             profile={profile}
             onStart={handleStart}
+            onManageRoutines={handleManageRoutines}
             onOpenHistory={handleOpenHistory}
             onRepeatWorkout={handleRepeatWorkout}
           />
         )}
 
         {view === VIEWS.PROGRESS && <ProgressPage />}
-
         {view === VIEWS.PROFILE && <ProfileView />}
+
+        {view === VIEWS.ROUTINES && (
+          <RoutinesManager
+            initialType={routineInitialType}
+            onBack={() => navigate(routineReturnView)}
+            onStartRoutine={handleStartRoutine}
+          />
+        )}
 
         {view === VIEWS.HISTORY && (
           <HistoryPage
@@ -207,18 +247,28 @@ export default function App() {
             workout={selectedWorkout}
             onBack={() => navigate(detailReturnView)}
             onRepeat={handleRepeatWorkout}
+            onEdit={handleEditWorkout}
+          />
+        )}
+
+        {view === VIEWS.WORKOUT_EDIT && (
+          <WorkoutEditor
+            workout={selectedWorkout}
+            onBack={() => navigate(VIEWS.WORKOUT_DETAIL)}
+            onSaved={handleWorkoutEdited}
           />
         )}
 
         {view === VIEWS.TEMPLATE_SELECTOR && (
-          <TemplateSelector onSelect={handleTemplateSelected} onBack={handleReset} />
+          <TemplateSelector
+            onSelect={handleTemplateSelected}
+            onBack={handleReset}
+            onManageRoutines={handleManageRoutines}
+          />
         )}
 
         {view === VIEWS.DAY_SELECTOR && (
-          <DaySelector
-            onSelect={handleDaySelected}
-            onBack={() => navigate(VIEWS.TEMPLATE_SELECTOR)}
-          />
+          <DaySelector onSelect={handleDaySelected} onBack={() => navigate(VIEWS.TEMPLATE_SELECTOR)} />
         )}
 
         {view === VIEWS.CATEGORY_SELECTOR && (
@@ -253,11 +303,7 @@ export default function App() {
       </main>
 
       {showChrome && (
-        <BottomNavigation
-          currentView={view}
-          onNavigate={navigate}
-          onStart={handleStart}
-        />
+        <BottomNavigation currentView={view} onNavigate={navigate} onStart={handleStart} />
       )}
     </div>
   );
