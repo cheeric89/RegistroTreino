@@ -19,6 +19,8 @@ import "./styles/portfolio-summary.css";
 import "./styles/portfolio-exercise-progress.css";
 import "./styles/portfolio-exercise-insights.css";
 import "./styles/portfolio-routines.css";
+import "./styles/portfolio-routine-launch.css";
+import "./styles/portfolio-workout-editor.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
