@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Check, CheckCircle2, ChevronLeft, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useProfile } from "../hooks/useProfile";
@@ -6,11 +6,11 @@ import {
   clearDraftWorkout,
   getDraftWorkout,
   getExerciseSuggestions,
-  getLastExercisePerformance,
   saveDraftWorkout,
   saveWorkout,
 } from "../utils/storage";
 import { getPRStatus } from "../utils/progressionEngine";
+import ExerciseLiveContext from "./ExerciseLiveContext";
 import "./workoutform-autocomplete.css";
 
 const newSet = (set = {}) => ({
@@ -267,14 +267,6 @@ export default function WorkoutForm({
     }));
   }, [updateExercise]);
 
-  const lastPerformances = useMemo(() => {
-    const performances = {};
-    catData.forEach((category) => category.exercises.forEach((exercise) => {
-      if (exercise.name?.trim()) performances[exercise.name] = getLastExercisePerformance(exercise.name);
-    }));
-    return performances;
-  }, [catData]);
-
   const handleSave = useCallback((event) => {
     event?.preventDefault();
     if (saving) return;
@@ -391,16 +383,7 @@ export default function WorkoutForm({
 
                       {wasCopied && <div className="wf-copied-banner" role="status">✨ Series copiadas automáticamente</div>}
 
-                      {lastPerformances[exercise.name]?.length > 0 && (
-                        <div className="wf-last-session">
-                          <span className="wf-last-title">📊 Última sesión</span>
-                          <div className="wf-last-pills">
-                            {lastPerformances[exercise.name].map((set, index) => (
-                              <span key={index} className="wf-last-pill">{set.weight || 0} kg × {set.reps || 0}</span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      <ExerciseLiveContext exerciseName={exercise.name} sets={exercise.sets} />
 
                       <div className="wf-sets-header">
                         <span className="header-space" />
