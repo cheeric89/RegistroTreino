@@ -1,3 +1,8 @@
+import {
+  choosePreferredExerciseName,
+  normalizeExerciseName,
+} from "./exerciseNames";
+
 const GROUP_DEFINITIONS = {
   push: {
     id: "push",
@@ -69,8 +74,6 @@ export function getWorkoutGroup(workout) {
   const ranked = Object.entries(scores).sort((a, b) => b[1] - a[1]);
   if (!ranked[0] || ranked[0][1] === 0) return "other";
 
-  // En empate priorizamos Legs cuando existe trabajo claro de tren inferior;
-  // para Push/Pull conservamos el orden de aparición del objeto.
   const bestScore = ranked[0][1];
   const tied = ranked.filter(([, score]) => score === bestScore).map(([id]) => id);
   if (tied.includes("legs")) return "legs";
@@ -119,15 +122,17 @@ export function getBestExerciseMarks(workouts = [], limit = 5) {
         const exerciseName = exercise?.name?.trim();
         if (!exerciseName) return;
 
-        const key = normalize(exerciseName);
+        const key = normalizeExerciseName(exerciseName);
+        if (!key) return;
 
         (exercise?.sets || []).forEach((set) => {
           const weight = Number(set?.weight) || 0;
           const reps = Number(set?.reps) || 0;
           if (weight <= 0 && reps <= 0) return;
 
+          const current = bestByExercise.get(key);
           const candidate = {
-            name: exerciseName,
+            name: choosePreferredExerciseName(current?.name, exerciseName),
             category: category?.name || "Sin grupo",
             weight,
             reps,
@@ -135,7 +140,6 @@ export function getBestExerciseMarks(workouts = [], limit = 5) {
             timestamp: Number(workout?.timestamp) || 0,
           };
 
-          const current = bestByExercise.get(key);
           const isBetter =
             !current ||
             candidate.weight > current.weight ||
@@ -144,7 +148,11 @@ export function getBestExerciseMarks(workouts = [], limit = 5) {
               candidate.reps === current.reps &&
               candidate.timestamp > current.timestamp);
 
-          if (isBetter) bestByExercise.set(key, candidate);
+          if (isBetter) {
+            bestByExercise.set(key, candidate);
+          } else if (current) {
+            current.name = choosePreferredExerciseName(current.name, exerciseName);
+          }
         });
       });
     });
