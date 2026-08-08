@@ -48,6 +48,8 @@ const normalizeWeightInput = (value = "") => {
   return normalized;
 };
 
+const formatWeightInput = (value = "") => String(value ?? "").replace(".", ",");
+
 const formatTime = (seconds) => {
   const values = [Math.floor(seconds / 3600), Math.floor((seconds % 3600) / 60), seconds % 60];
   return values.map((value) => String(value).padStart(2, "0")).join(":");
@@ -419,7 +421,7 @@ export default function WorkoutForm({
                             inputMode="decimal"
                             className={`wf-set-input ${wasCopied ? "wf-set-input--copied" : ""}`}
                             placeholder="0"
-                            value={set.weight}
+                            value={formatWeightInput(set.weight)}
                             onChange={(event) => updateSet(ci, ei, si, "weight", event.target.value)}
                             aria-label={`Peso de la serie ${si + 1}`}
                           />
