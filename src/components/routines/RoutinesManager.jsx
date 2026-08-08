@@ -46,13 +46,18 @@ const formatTarget = (target) => {
   return reps > 0 ? `${reps} reps` : "Sin meta aún";
 };
 
-export default function RoutinesManager({ onBack, onStartRoutine }) {
+export default function RoutinesManager({ initialType = "push", onBack, onStartRoutine }) {
   const { routines, syncing, syncError, saveRoutine, resetRoutine, getRoutine } = useRoutineContext();
   const { workouts } = useWorkoutContext();
-  const [activeType, setActiveType] = useState("push");
-  const [draft, setDraft] = useState(() => cloneRoutine(getRoutine("push")));
+  const safeInitialType = TYPES.includes(initialType) ? initialType : "push";
+  const [activeType, setActiveType] = useState(safeInitialType);
+  const [draft, setDraft] = useState(() => cloneRoutine(getRoutine(safeInitialType)));
   const [saving, setSaving] = useState(false);
   const [resetPending, setResetPending] = useState(false);
+
+  useEffect(() => {
+    if (TYPES.includes(initialType)) setActiveType(initialType);
+  }, [initialType]);
 
   useEffect(() => {
     setDraft(cloneRoutine(getRoutine(activeType)));
