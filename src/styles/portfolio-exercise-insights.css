@@ -1,0 +1,258 @@
+.exercise-progress-header-badges {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.exercise-progress-pr-count {
+  padding: 7px 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--warning);
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.1);
+  font-size: 0.7rem;
+  font-weight: 850;
+}
+
+.exercise-progress-insights {
+  margin-top: 14px;
+  display: grid;
+  gap: 9px;
+}
+
+.exercise-progress-insight {
+  min-width: 0;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.exercise-progress-insight--target {
+  border-color: rgba(167, 139, 250, 0.16);
+  background: rgba(139, 92, 246, 0.055);
+}
+
+.exercise-progress-insight__icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  border-radius: 12px;
+  background: rgba(139, 92, 246, 0.1);
+}
+
+.exercise-progress-insight__body {
+  min-width: 0;
+}
+
+.exercise-progress-insight__body h4 {
+  margin-top: 3px;
+  font-size: 0.88rem;
+}
+
+.exercise-progress-insight__body > strong {
+  margin-top: 7px;
+  display: block;
+  color: var(--accent);
+  font-size: 1.05rem;
+}
+
+.exercise-progress-insight__body > p {
+  margin-top: 5px;
+  color: var(--text-2);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.exercise-session-deltas {
+  margin-top: 9px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.exercise-session-delta {
+  min-width: 0;
+  padding: 9px;
+  display: grid;
+  gap: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 11px;
+  background: rgba(0, 0, 0, 0.14);
+}
+
+.exercise-session-delta > span {
+  color: var(--text-3);
+  font-size: 0.6rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.exercise-session-delta > strong {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.75rem;
+}
+
+.exercise-session-delta > small {
+  color: var(--text-3);
+  font-size: 0.61rem;
+}
+
+.exercise-session-delta--positive > strong {
+  color: var(--success);
+}
+
+.exercise-session-delta--negative > strong {
+  color: var(--danger);
+}
+
+.exercise-session-delta--neutral > strong {
+  color: var(--text-2);
+}
+
+.exercise-progress-chart-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.exercise-progress-pr-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-3);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.exercise-progress-pr-legend > span {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--warning);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.11);
+}
+
+.exercise-chart-point.is-pr .exercise-chart-point-dot {
+  stroke: var(--warning);
+}
+
+.exercise-chart-pr-marker {
+  pointer-events: none;
+}
+
+.exercise-chart-pr-marker rect {
+  fill: rgba(245, 158, 11, 0.14);
+  stroke: rgba(245, 158, 11, 0.48);
+  stroke-width: 1;
+}
+
+.exercise-chart-pr-marker text {
+  fill: var(--warning);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.exercise-progress-point-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.exercise-progress-point-value em {
+  padding: 2px 5px;
+  color: var(--warning);
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.11);
+  font-size: 0.56rem;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.exercise-progress-point-delta--positive {
+  color: var(--success);
+}
+
+.exercise-progress-point-delta--negative {
+  color: var(--danger);
+}
+
+.exercise-progress-point-delta--neutral {
+  color: var(--text-2);
+}
+
+@media (min-width: 820px) {
+  .exercise-progress-insights {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  }
+
+  .exercise-progress-point-detail {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .exercise-progress-header-badges {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .exercise-progress-detail__header {
+    flex-wrap: wrap;
+  }
+
+  .exercise-progress-chart-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .exercise-progress-pr-legend {
+    padding-left: 2px;
+  }
+
+  .exercise-session-deltas {
+    grid-template-columns: 1fr;
+  }
+
+  .exercise-progress-insight {
+    padding: 12px;
+  }
+
+  .exercise-progress-list {
+    max-height: 330px;
+    overflow-y: auto;
+    padding-right: 2px;
+  }
+
+  .exercise-progress-list-item:nth-child(n + 7) {
+    display: flex;
+  }
+}
+
+@media (max-width: 370px) {
+  .exercise-progress-chart-controls {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .exercise-progress-pr-legend {
+    padding-left: 0;
+  }
+}
