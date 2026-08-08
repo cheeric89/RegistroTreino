@@ -8,6 +8,10 @@
 //   - Si en el futuro hay backend, solo se cambia `getAllWorkouts()` en storage.js
 
 import { getAllWorkouts } from "../utils/storage";
+import {
+  choosePreferredExerciseName,
+  normalizeExerciseName,
+} from "./exerciseNames";
 
 // ── Constantes de progresión ───────────────────────────────
 // Incremento estándar sugerido en kg
@@ -15,22 +19,9 @@ const WEIGHT_INCREMENT = 2.5;
 // Incremento sugerido en reps cuando el peso es bajo (<20kg)
 const REPS_INCREMENT = 1;
 
-// ── Normalización ──────────────────────────────────────────
-/**
- * Normaliza el nombre de un ejercicio para comparación insensible a mayúsculas,
- * tildes y espacios extra. Evita que "press de banca" != "Press De Banca".
- */
-function normalizeName(name = "") {
-  return name
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, ""); // elimina tildes
-}
-
 // ── Búsqueda en historial ──────────────────────────────────
 /**
- * Busca la última sesión que contenga un ejercicio con ese nombre.
+ * Busca la última sesión que contenga un ejercicio equivalente a ese nombre.
  * Devuelve null si no hay historial.
  *
  * @param {string} exerciseName - Nombre del ejercicio a buscar
@@ -39,7 +30,7 @@ function normalizeName(name = "") {
 export function getLastSession(exerciseName) {
   if (!exerciseName?.trim()) return null;
 
-  const normalized = normalizeName(exerciseName);
+  const normalized = normalizeExerciseName(exerciseName);
   const allWorkouts = getAllWorkouts();
 
   for (const workout of allWorkouts) {
@@ -50,7 +41,7 @@ export function getLastSession(exerciseName) {
     for (const cat of cats) {
       const exercises = Array.isArray(cat?.exercises) ? cat.exercises : [];
       for (const ex of exercises) {
-        if (normalizeName(ex?.name) !== normalized) continue;
+        if (normalizeExerciseName(ex?.name) !== normalized) continue;
 
         // Encontramos el ejercicio — extraemos el mejor set (máx volumen)
         const sets = Array.isArray(ex?.sets) ? ex.sets : [];
@@ -85,20 +76,11 @@ export function getLastSession(exerciseName) {
 // ── Sugerencia de progresión ───────────────────────────────
 /**
  * Genera un hint de progresión para mostrar bajo el nombre del ejercicio.
- *
- * @param {string} exerciseName
- * @returns {{
- *   type: "first_time" | "suggestion" | null,
- *   last: { weight: number, reps: number, sets: number, date: string } | null,
- *   suggested: { weight: number, reps: number } | null,
- *   message: string,
- * }}
  */
 export function getProgressionHint(exerciseName) {
   const EMPTY = { type: null, last: null, suggested: null, message: "" };
 
-  if (!exerciseName?.trim() || normalizeName(exerciseName).startsWith("ejercicio")) {
-    // Nombre genérico ("Ejercicio 1") → no mostrar hint todavía
+  if (!exerciseName?.trim() || normalizeExerciseName(exerciseName).startsWith("ejercicio")) {
     return EMPTY;
   }
 
@@ -113,7 +95,6 @@ export function getProgressionHint(exerciseName) {
     };
   }
 
-  // Calcula la sugerencia: +2.5kg si tiene peso, +1 rep si no
   const suggestedWeight =
     last.weight > 0 ? last.weight + WEIGHT_INCREMENT : 0;
   const suggestedReps =
@@ -136,31 +117,17 @@ export function getProgressionHint(exerciseName) {
 }
 
 // ── Detección de PR al guardar ─────────────────────────────
-/**
- * Compara el mejor set de la sesión actual con la última sesión histórica
- * para detectar si hubo mejora (PR) o regresión.
- *
- * @param {string} exerciseName
- * @param {Array<{weight: string, reps: string}>} currentSets
- * @returns {{
- *   isPR: boolean,
- *   isRegression: boolean,
- *   isEqual: boolean,
- *   volumeDelta: number,   // positivo = mejoró, negativo = bajó
- * }}
- */
 export function getPRStatus(exerciseName, currentSets = []) {
   const NO_COMPARISON = { isPR: false, isRegression: false, isEqual: false, volumeDelta: 0 };
 
   const last = getLastSession(exerciseName);
-  if (!last) return NO_COMPARISON; // primera vez, no hay con qué comparar
+  if (!last) return NO_COMPARISON;
 
   const validCurrent = currentSets.filter(
     (s) => parseFloat(s?.weight) > 0 || parseInt(s?.reps, 10) > 0
   );
   if (validCurrent.length === 0) return NO_COMPARISON;
 
-  // Mejor volumen de la sesión actual
   const bestCurrent = validCurrent.reduce((best, s) => {
     const vol = (parseFloat(s?.weight) || 0) * (parseInt(s?.reps, 10) || 0);
     const bestVol = (parseFloat(best?.weight) || 0) * (parseInt(best?.reps, 10) || 0);
@@ -172,7 +139,6 @@ export function getPRStatus(exerciseName, currentSets = []) {
   const lastVol = last.weight * last.reps;
   const delta = currentVol - lastVol;
 
-  // También comparamos peso máximo directamente (PR de fuerza pura)
   const currentMaxWeight = Math.max(
     ...validCurrent.map((s) => parseFloat(s?.weight) || 0)
   );
@@ -197,7 +163,9 @@ export function getAllPRs(workouts = []) {
       const exercises = Array.isArray(cat?.exercises) ? cat.exercises : [];
       for (const ex of exercises) {
         if (!ex?.name?.trim()) continue;
-        const key = normalizeName(ex.name);
+        const key = normalizeExerciseName(ex.name);
+        if (!key) continue;
+
         const sets = Array.isArray(ex.sets) ? ex.sets : [];
 
         for (const s of sets) {
@@ -208,16 +176,19 @@ export function getAllPRs(workouts = []) {
           const volume = weight * reps;
           const current = map.get(key);
 
-          // PR = mayor peso levantado; si hay empate de peso, gana el
-          // set con más volumen (peso × reps) como criterio secundario.
           const isBetter =
             !current ||
             weight > current.best_weight ||
             (weight === current.best_weight && volume > current.best_volume);
 
+          const preferredName = choosePreferredExerciseName(
+            current?.exercise_name,
+            ex.name
+          );
+
           if (isBetter) {
             map.set(key, {
-              exercise_name: ex.name,
+              exercise_name: preferredName,
               exercise_key: key,
               best_weight: weight,
               best_reps: reps,
@@ -225,6 +196,8 @@ export function getAllPRs(workouts = []) {
               achieved_at: workout?.date ?? null,
               workout_timestamp: workout?.timestamp ?? null,
             });
+          } else if (current && preferredName !== current.exercise_name) {
+            current.exercise_name = preferredName;
           }
         }
       }
