@@ -9,6 +9,7 @@ import {
   Search,
   Target,
   TrendingUp,
+  Trophy,
 } from "lucide-react";
 import { buildExerciseProgress } from "../../utils/exerciseProgress";
 
@@ -17,19 +18,31 @@ const METRICS = {
     label: "Peso",
     shortLabel: "kg",
     value: (point) => point.weight,
+    deltaKey: "weightDelta",
+    percentKey: "weightPercent",
+    prKey: "weight",
     format: (value) => `${Number(value).toLocaleString("es-CL")} kg`,
+    formatDelta: (value) => `${Math.abs(Number(value)).toLocaleString("es-CL")} kg`,
   },
   reps: {
     label: "Reps",
     shortLabel: "reps",
     value: (point) => point.reps,
+    deltaKey: "repsDelta",
+    percentKey: "repsPercent",
+    prKey: "reps",
     format: (value) => `${Number(value).toLocaleString("es-CL")} reps`,
+    formatDelta: (value) => `${Math.abs(Number(value)).toLocaleString("es-CL")} reps`,
   },
   volume: {
     label: "Volumen",
     shortLabel: "kg",
     value: (point) => point.volume,
+    deltaKey: "volumeDelta",
+    percentKey: "volumePercent",
+    prKey: "volume",
     format: (value) => `${Math.round(Number(value)).toLocaleString("es-CL")} kg`,
+    formatDelta: (value) => `${Math.round(Math.abs(Number(value))).toLocaleString("es-CL")} kg`,
   },
 };
 
@@ -54,6 +67,19 @@ const formatDelta = (value) => {
   if (numeric === 0) return "Sin cambios";
   const sign = numeric > 0 ? "+" : "";
   return `${sign}${numeric.toLocaleString("es-CL")} kg`;
+};
+
+const getDeltaState = (value) => {
+  const numeric = Number(value) || 0;
+  if (numeric > 0) return "positive";
+  if (numeric < 0) return "negative";
+  return "neutral";
+};
+
+const formatPercent = (value) => {
+  if (!Number.isFinite(Number(value))) return null;
+  const numeric = Number(value);
+  return `${numeric > 0 ? "+" : ""}${Math.round(numeric)}%`;
 };
 
 function getChartGeometry(points, metricKey) {
@@ -164,13 +190,16 @@ function ProgressLineChart({ points, metricKey, selectedIndex, onSelectPoint }) 
 
         {geometry.coords.map((coord) => {
           const selected = coord.index === selectedIndex;
+          const isPR = Boolean(coord.point?.prs?.[metric.prKey]);
+          const badgeY = Math.max(3, coord.y - 28);
+
           return (
             <g
               key={`${coord.point.timestamp}-${coord.index}`}
-              className={`exercise-chart-point ${selected ? "is-selected" : ""}`}
+              className={`exercise-chart-point ${selected ? "is-selected" : ""} ${isPR ? "is-pr" : ""}`}
               role="button"
               tabIndex="0"
-              aria-label={`${coord.point.dateLabel}: ${metric.format(coord.value)}`}
+              aria-label={`${coord.point.dateLabel}: ${metric.format(coord.value)}${isPR ? ", récord personal" : ""}`}
               onClick={() => onSelectPoint(coord.index)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") {
@@ -179,6 +208,12 @@ function ProgressLineChart({ points, metricKey, selectedIndex, onSelectPoint }) 
                 }
               }}
             >
+              {isPR && (
+                <g className="exercise-chart-pr-marker" aria-hidden="true">
+                  <rect x={coord.x - 14} y={badgeY} width="28" height="16" rx="8" />
+                  <text x={coord.x} y={badgeY + 11} textAnchor="middle">PR</text>
+                </g>
+              )}
               {selected && <circle className="exercise-chart-point-halo" cx={coord.x} cy={coord.y} r="13" />}
               <circle className="exercise-chart-point-dot" cx={coord.x} cy={coord.y} r={selected ? 6 : 4.5} />
             </g>
@@ -208,13 +243,54 @@ function ProgressLineChart({ points, metricKey, selectedIndex, onSelectPoint }) 
 function DeltaBadge({ value }) {
   const numeric = Number(value) || 0;
   const Icon = numeric > 0 ? ArrowUpRight : numeric < 0 ? ArrowDownRight : Minus;
-  const state = numeric > 0 ? "positive" : numeric < 0 ? "negative" : "neutral";
+  const state = getDeltaState(numeric);
 
   return (
     <span className={`exercise-progress-delta exercise-progress-delta--${state}`}>
       <Icon size={14} />
       {formatDelta(numeric)}
     </span>
+  );
+}
+
+function MiniMetricDelta({ metricKey, comparison }) {
+  const metric = METRICS[metricKey];
+  const delta = Number(comparison?.[metric.deltaKey]) || 0;
+  const percent = formatPercent(comparison?.[metric.percentKey]);
+  const state = getDeltaState(delta);
+  const Icon = delta > 0 ? ArrowUpRight : delta < 0 ? ArrowDownRight : Minus;
+
+  return (
+    <div className={`exercise-session-delta exercise-session-delta--${state}`}>
+      <span>{metric.label}</span>
+      <strong>
+        <Icon size={14} />
+        {delta > 0 ? "+" : delta < 0 ? "−" : ""}{metric.formatDelta(delta)}
+      </strong>
+      <small>{percent || "Sin base porcentual"}</small>
+    </div>
+  );
+}
+
+function TargetSummary({ target }) {
+  if (!target) return null;
+
+  const value = target.weight > 0
+    ? `${target.weight.toLocaleString("es-CL")} kg${target.reps ? ` × ${target.reps}` : ""}`
+    : `${target.reps} reps`;
+
+  return (
+    <article className="exercise-progress-insight exercise-progress-insight--target">
+      <div className="exercise-progress-insight__icon">
+        <Target size={19} />
+      </div>
+      <div className="exercise-progress-insight__body">
+        <span className="card-kicker">Siguiente sesión</span>
+        <h4>{target.title}</h4>
+        <strong>{value}</strong>
+        <p>{target.message}</p>
+      </div>
+    </article>
   );
 }
 
@@ -285,6 +361,14 @@ export default function ExerciseProgress({ workouts = [] }) {
       ? ((latest.weight - first.weight) / first.weight) * 100
       : null;
 
+  const selectedDelta = selectedPoint?.comparison
+    ? Number(selectedPoint.comparison?.[metric.deltaKey]) || 0
+    : null;
+  const selectedDeltaPercent = selectedPoint?.comparison
+    ? formatPercent(selectedPoint.comparison?.[metric.percentKey])
+    : null;
+  const selectedIsPR = Boolean(selectedPoint?.prs?.[metric.prKey]);
+
   return (
     <section className="exercise-progress-section">
       <div className="exercise-progress-heading">
@@ -340,7 +424,15 @@ export default function ExerciseProgress({ workouts = [] }) {
                   {selectedExercise.sessions} {selectedExercise.sessions === 1 ? "sesión registrada" : "sesiones registradas"}
                 </p>
               </div>
-              <DeltaBadge value={selectedExercise.weightDelta} />
+              <div className="exercise-progress-header-badges">
+                {selectedExercise.prCount > 0 && (
+                  <span className="exercise-progress-pr-count">
+                    <Trophy size={14} />
+                    {selectedExercise.prCount} {selectedExercise.prCount === 1 ? "PR" : "PRs"}
+                  </span>
+                )}
+                <DeltaBadge value={selectedExercise.weightDelta} />
+              </div>
             </header>
 
             <div className="exercise-progress-kpis">
@@ -378,25 +470,55 @@ export default function ExerciseProgress({ workouts = [] }) {
               </article>
             </div>
 
+            {selectedExercise.sessions > 1 && (
+              <div className="exercise-progress-insights">
+                <article className="exercise-progress-insight exercise-progress-insight--comparison">
+                  <div className="exercise-progress-insight__icon">
+                    <TrendingUp size={19} />
+                  </div>
+                  <div className="exercise-progress-insight__body">
+                    <span className="card-kicker">Última sesión</span>
+                    <h4>Vs. sesión anterior</h4>
+                    <div className="exercise-session-deltas">
+                      {Object.keys(METRICS).map((key) => (
+                        <MiniMetricDelta
+                          key={key}
+                          metricKey={key}
+                          comparison={selectedExercise.latestComparison}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </article>
+
+                <TargetSummary target={selectedExercise.nextTarget} />
+              </div>
+            )}
+
             <div className="exercise-progress-chart-card">
               <div className="exercise-progress-chart-toolbar">
                 <div>
                   <span className="card-kicker">Historial de marcas</span>
                   <h3>{metric.label}</h3>
                 </div>
-                <div className="exercise-progress-metric-tabs" role="tablist" aria-label="Métrica del gráfico">
-                  {Object.entries(METRICS).map(([key, item]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      role="tab"
-                      aria-selected={metricKey === key}
-                      className={metricKey === key ? "is-active" : ""}
-                      onClick={() => setMetricKey(key)}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
+                <div className="exercise-progress-chart-controls">
+                  <span className="exercise-progress-pr-legend">
+                    <span /> PR
+                  </span>
+                  <div className="exercise-progress-metric-tabs" role="tablist" aria-label="Métrica del gráfico">
+                    {Object.entries(METRICS).map(([key, item]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        role="tab"
+                        aria-selected={metricKey === key}
+                        className={metricKey === key ? "is-active" : ""}
+                        onClick={() => setMetricKey(key)}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -423,7 +545,18 @@ export default function ExerciseProgress({ workouts = [] }) {
                   </div>
                   <div>
                     <span>{metric.label}</span>
-                    <strong>{metric.format(metric.value(selectedPoint))}</strong>
+                    <strong className="exercise-progress-point-value">
+                      {metric.format(metric.value(selectedPoint))}
+                      {selectedIsPR && <em>PR</em>}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>Vs. anterior</span>
+                    <strong className={`exercise-progress-point-delta exercise-progress-point-delta--${selectedDelta === null ? "neutral" : getDeltaState(selectedDelta)}`}>
+                      {selectedDelta === null
+                        ? "Primera referencia"
+                        : `${selectedDelta > 0 ? "+" : selectedDelta < 0 ? "−" : ""}${metric.formatDelta(selectedDelta)}${selectedDeltaPercent ? ` · ${selectedDeltaPercent}` : ""}`}
+                    </strong>
                   </div>
                   <div>
                     <span>Mejor serie</span>
