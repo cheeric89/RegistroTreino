@@ -15,6 +15,7 @@ import "./styles/portfolio-records.css";
 import "./styles/portfolio-history.css";
 import "./styles/portfolio-sync.css";
 import "./styles/portfolio-summary.css";
+import "./styles/portfolio-exercise-progress.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
