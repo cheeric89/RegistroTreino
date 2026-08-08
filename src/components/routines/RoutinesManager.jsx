@@ -18,6 +18,7 @@ import { useWorkoutContext } from "../../contexts/WorkoutContext";
 import { buildExerciseProgress } from "../../utils/exerciseProgress";
 import { normalizeExerciseName } from "../../utils/exerciseNames";
 import { countRoutineExercises, countRoutineSets } from "../../utils/routines";
+import AIRoutineGenerator from "./AIRoutineGenerator";
 
 const TYPES = ["push", "pull", "legs"];
 
@@ -54,6 +55,7 @@ export default function RoutinesManager({ initialType = "push", onBack, onStartR
   const [draft, setDraft] = useState(() => cloneRoutine(getRoutine(safeInitialType)));
   const [saving, setSaving] = useState(false);
   const [resetPending, setResetPending] = useState(false);
+  const [showAIGenerator, setShowAIGenerator] = useState(false);
 
   useEffect(() => {
     if (TYPES.includes(initialType)) setActiveType(initialType);
@@ -133,6 +135,7 @@ export default function RoutinesManager({ initialType = "push", onBack, onStartR
           exercises: category.exercises
             .filter((exercise) => exercise.name.trim())
             .map((exercise) => ({
+              ...exercise,
               name: exercise.name.trim(),
               sets: Math.min(8, Math.max(1, Number(exercise.sets) || 1)),
             })),
@@ -156,6 +159,45 @@ export default function RoutinesManager({ initialType = "push", onBack, onStartR
       });
     } else {
       toast.success(`${cleaned.name} guardada y sincronizada`);
+    }
+  };
+
+  const handleApplyAIPlan = async (plan) => {
+    const generatedRoutines = (plan?.routines || []).map((routine) => ({
+      type: routine.type,
+      name: routine.name,
+      emoji: routine.emoji || "✨",
+      description: routine.description || plan.summary || "Plan generado por Treino AI",
+      categories: (routine.categories || []).map((category) => ({
+        name: category.name,
+        exercises: (category.exercises || []).map((exercise) => ({
+          name: exercise.name,
+          sets: Math.min(8, Math.max(1, Number(exercise.sets) || 1)),
+          repMin: Number(exercise.reps_min) || null,
+          repMax: Number(exercise.reps_max) || null,
+          restSeconds: Number(exercise.rest_seconds) || null,
+          aiNotes: exercise.notes || "",
+        })),
+      })),
+    }));
+
+    const valid = generatedRoutines.filter((routine) => TYPES.includes(routine.type));
+    if (valid.length !== 3) throw new Error("El plan generado no contiene Push, Pull y Legs completos.");
+
+    let hadSyncError = false;
+    for (const routine of valid) {
+      const result = await saveRoutine(routine);
+      if (result.error) hadSyncError = true;
+    }
+
+    const push = valid.find((routine) => routine.type === "push");
+    setActiveType("push");
+    if (push) setDraft(cloneRoutine(push));
+
+    if (hadSyncError) {
+      toast.warning("Plan aplicado localmente", {
+        description: "Alguna rutina quedó pendiente de sincronización y Treino la reintentará al reconectar.",
+      });
     }
   };
 
@@ -190,6 +232,17 @@ export default function RoutinesManager({ initialType = "push", onBack, onStartR
           <span>Los cambios aquí solo afectan tus próximas sesiones. Tu historial anterior permanece intacto.</span>
         </div>
         <small>{syncing ? "Sincronizando…" : syncError ? "Modo offline" : "Sincronizado"}</small>
+      </section>
+
+      <section className="routines-ai-launch">
+        <div className="routines-ai-launch__icon"><Sparkles size={20} /></div>
+        <div>
+          <strong>Generar rutina con IA</strong>
+          <span>Objetivo + experiencia + tiempo + equipamiento → un plan Push / Pull / Legs listo para revisar y editar.</span>
+        </div>
+        <button type="button" className="secondary-action-button" onClick={() => setShowAIGenerator(true)}>
+          <Sparkles size={16} /> Crear plan
+        </button>
       </section>
 
       <div className="routines-tabs" role="tablist" aria-label="Rutinas">
@@ -274,6 +327,9 @@ export default function RoutinesManager({ initialType = "push", onBack, onStartR
                           ) : (
                             <span><Dumbbell size={13} /> Sin historial todavía</span>
                           )}
+                          {exercise.repMin && exercise.repMax && (
+                            <span>IA · {exercise.repMin}–{exercise.repMax} reps{exercise.restSeconds ? ` · ${exercise.restSeconds}s` : ""}</span>
+                          )}
                         </div>
                       </div>
 
@@ -332,6 +388,13 @@ export default function RoutinesManager({ initialType = "push", onBack, onStartR
             </div>
           </div>
         </div>
+      )}
+
+      {showAIGenerator && (
+        <AIRoutineGenerator
+          onClose={() => setShowAIGenerator(false)}
+          onApplyPlan={handleApplyAIPlan}
+        />
       )}
     </div>
   );
