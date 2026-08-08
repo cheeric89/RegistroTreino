@@ -33,6 +33,21 @@ const initCategory = (name, preset = null) => ({
 
 const normalize = (value = "") => value.trim().toLocaleLowerCase("es");
 
+const normalizeWeightInput = (value = "") => {
+  let normalized = String(value)
+    .replace(/,/g, ".")
+    .replace(/[^0-9.]/g, "");
+
+  const firstDot = normalized.indexOf(".");
+  if (firstDot >= 0) {
+    normalized =
+      normalized.slice(0, firstDot + 1) +
+      normalized.slice(firstDot + 1).replace(/\./g, "");
+  }
+
+  return normalized;
+};
+
 const formatTime = (seconds) => {
   const values = [Math.floor(seconds / 3600), Math.floor((seconds % 3600) / 60), seconds % 60];
   return values.map((value) => String(value).padStart(2, "0")).join(":");
@@ -254,9 +269,13 @@ export default function WorkoutForm({
   }, [updateExercise]);
 
   const updateSet = useCallback((ci, ei, si, field, value) => {
+    const nextValue = field === "weight" ? normalizeWeightInput(value) : value;
+
     updateExercise(ci, ei, (exercise) => ({
       ...exercise,
-      sets: exercise.sets.map((set, index) => (index === si ? { ...set, [field]: value } : set)),
+      sets: exercise.sets.map((set, index) =>
+        index === si ? { ...set, [field]: nextValue } : set
+      ),
     }));
   }, [updateExercise]);
 
@@ -396,12 +415,13 @@ export default function WorkoutForm({
                         <div key={set.id} className={`wf-set-row ${set.done ? "wf-set-row--done" : ""}`}>
                           <div className="set-number-box"><span>{si + 1}</span></div>
                           <input
-                            type="number"
+                            type="text"
                             inputMode="decimal"
                             className={`wf-set-input ${wasCopied ? "wf-set-input--copied" : ""}`}
                             placeholder="0"
                             value={set.weight}
                             onChange={(event) => updateSet(ci, ei, si, "weight", event.target.value)}
+                            aria-label={`Peso de la serie ${si + 1}`}
                           />
                           <input
                             type="number"
