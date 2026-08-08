@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Check, CheckCircle2, ChevronLeft, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useProfile } from "../hooks/useProfile";
@@ -6,11 +6,11 @@ import {
   clearDraftWorkout,
   getDraftWorkout,
   getExerciseSuggestions,
-  getLastExercisePerformance,
   saveDraftWorkout,
   saveWorkout,
 } from "../utils/storage";
 import { getPRStatus } from "../utils/progressionEngine";
+import ExerciseLiveContext from "./ExerciseLiveContext";
 import "./workoutform-autocomplete.css";
 
 const newSet = (set = {}) => ({
@@ -32,6 +32,23 @@ const initCategory = (name, preset = null) => ({
 });
 
 const normalize = (value = "") => value.trim().toLocaleLowerCase("es");
+
+const normalizeWeightInput = (value = "") => {
+  let normalized = String(value)
+    .replace(/,/g, ".")
+    .replace(/[^0-9.]/g, "");
+
+  const firstDot = normalized.indexOf(".");
+  if (firstDot >= 0) {
+    normalized =
+      normalized.slice(0, firstDot + 1) +
+      normalized.slice(firstDot + 1).replace(/\./g, "");
+  }
+
+  return normalized;
+};
+
+const formatWeightInput = (value = "") => String(value ?? "").replace(".", ",");
 
 const formatTime = (seconds) => {
   const values = [Math.floor(seconds / 3600), Math.floor((seconds % 3600) / 60), seconds % 60];
@@ -254,9 +271,13 @@ export default function WorkoutForm({
   }, [updateExercise]);
 
   const updateSet = useCallback((ci, ei, si, field, value) => {
+    const nextValue = field === "weight" ? normalizeWeightInput(value) : value;
+
     updateExercise(ci, ei, (exercise) => ({
       ...exercise,
-      sets: exercise.sets.map((set, index) => (index === si ? { ...set, [field]: value } : set)),
+      sets: exercise.sets.map((set, index) =>
+        index === si ? { ...set, [field]: nextValue } : set
+      ),
     }));
   }, [updateExercise]);
 
@@ -266,14 +287,6 @@ export default function WorkoutForm({
       sets: exercise.sets.map((set, index) => (index === si ? { ...set, done: !set.done } : set)),
     }));
   }, [updateExercise]);
-
-  const lastPerformances = useMemo(() => {
-    const performances = {};
-    catData.forEach((category) => category.exercises.forEach((exercise) => {
-      if (exercise.name?.trim()) performances[exercise.name] = getLastExercisePerformance(exercise.name);
-    }));
-    return performances;
-  }, [catData]);
 
   const handleSave = useCallback((event) => {
     event?.preventDefault();
@@ -391,16 +404,7 @@ export default function WorkoutForm({
 
                       {wasCopied && <div className="wf-copied-banner" role="status">✨ Series copiadas automáticamente</div>}
 
-                      {lastPerformances[exercise.name]?.length > 0 && (
-                        <div className="wf-last-session">
-                          <span className="wf-last-title">📊 Última sesión</span>
-                          <div className="wf-last-pills">
-                            {lastPerformances[exercise.name].map((set, index) => (
-                              <span key={index} className="wf-last-pill">{set.weight || 0} kg × {set.reps || 0}</span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      <ExerciseLiveContext exerciseName={exercise.name} sets={exercise.sets} />
 
                       <div className="wf-sets-header">
                         <span className="header-space" />
@@ -413,12 +417,13 @@ export default function WorkoutForm({
                         <div key={set.id} className={`wf-set-row ${set.done ? "wf-set-row--done" : ""}`}>
                           <div className="set-number-box"><span>{si + 1}</span></div>
                           <input
-                            type="number"
+                            type="text"
                             inputMode="decimal"
                             className={`wf-set-input ${wasCopied ? "wf-set-input--copied" : ""}`}
                             placeholder="0"
-                            value={set.weight}
+                            value={formatWeightInput(set.weight)}
                             onChange={(event) => updateSet(ci, ei, si, "weight", event.target.value)}
+                            aria-label={`Peso de la serie ${si + 1}`}
                           />
                           <input
                             type="number"
