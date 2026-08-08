@@ -1,10 +1,7 @@
-const normalize = (value = "") =>
-  value
-    .trim()
-    .toLocaleLowerCase("es")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, " ");
+import {
+  choosePreferredExerciseName,
+  normalizeExerciseName,
+} from "./exerciseNames";
 
 const getValidSets = (sets = []) =>
   sets.filter((set) => {
@@ -181,12 +178,14 @@ export function buildExerciseProgress(workouts = []) {
       (workout?.exercises || []).forEach((category) => {
         (category?.exercises || []).forEach((exercise) => {
           const name = exercise?.name?.trim();
-          if (!name || normalize(name).startsWith("ejercicio ")) return;
+          if (!name || normalizeExerciseName(name).startsWith("ejercicio ")) return;
 
           const sets = getValidSets(exercise?.sets || []);
           if (!sets.length) return;
 
-          const key = normalize(name);
+          const key = normalizeExerciseName(name);
+          if (!key) return;
+
           const bestSet = getBestSet(sets);
           const maxReps = Math.max(...sets.map((set) => Number(set?.reps) || 0), 0);
           const totalVolume = sets.reduce(
@@ -217,6 +216,7 @@ export function buildExerciseProgress(workouts = []) {
           }
 
           const entry = byExercise.get(key);
+          entry.name = choosePreferredExerciseName(entry.name, name);
           entry.categories.add(category?.name || "Sin grupo");
 
           const existingPointIndex = entry.points.findIndex(
@@ -299,6 +299,4 @@ export function getExerciseProgressByKey(workouts = [], exerciseKey) {
   return buildExerciseProgress(workouts).find((exercise) => exercise.key === exerciseKey) || null;
 }
 
-export function normalizeExerciseName(value = "") {
-  return normalize(value);
-}
+export { normalizeExerciseName };
