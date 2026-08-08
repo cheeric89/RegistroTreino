@@ -232,7 +232,7 @@ export default function RoutinesManager({ initialType = "push", onBack, onStartR
 
         <div className="routine-category-list">
           {draft.categories.map((category, categoryIndex) => (
-            <section key={`${category.name}-${categoryIndex}`} className="routine-category-card">
+            <section key={`routine-category-${categoryIndex}`} className="routine-category-card">
               <header className="routine-category-card__header">
                 <input
                   value={category.name}
@@ -248,7 +248,7 @@ export default function RoutinesManager({ initialType = "push", onBack, onStartR
                 {category.exercises.map((exercise, exerciseIndex) => {
                   const progress = progressMap.get(normalizeExerciseName(exercise.name));
                   return (
-                    <article key={`${exercise.name}-${exerciseIndex}`} className="routine-exercise-row">
+                    <article key={`routine-exercise-${categoryIndex}-${exerciseIndex}`} className="routine-exercise-row">
                       <div className="routine-exercise-row__order">
                         <button type="button" disabled={exerciseIndex === 0} onClick={() => moveExercise(categoryIndex, exerciseIndex, -1)} aria-label="Subir ejercicio">
                           <ArrowUp size={14} />
