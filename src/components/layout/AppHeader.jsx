@@ -1,8 +1,9 @@
-import { BarChart3, Home, User } from "lucide-react";
+import { BarChart3, Home, Settings2, User } from "lucide-react";
 import BrandLogo from "./BrandLogo";
 
 const NAV_ITEMS = [
   { id: "dashboards", label: "Inicio", icon: Home },
+  { id: "routines", label: "Rutinas", icon: Settings2 },
   { id: "progress", label: "Progreso", icon: BarChart3 },
   { id: "profile", label: "Perfil", icon: User },
 ];
@@ -21,12 +22,7 @@ export default function AppHeader({ currentView, onNavigate, user, profile }) {
   return (
     <header className="app-shell-header">
       <div className="app-shell-header__inner">
-        <button
-          type="button"
-          className="brand-button"
-          onClick={() => onNavigate("dashboards")}
-          aria-label="Ir al inicio"
-        >
+        <button type="button" className="brand-button" onClick={() => onNavigate("dashboards")} aria-label="Ir al inicio">
           <BrandLogo compact />
         </button>
 
@@ -48,12 +44,7 @@ export default function AppHeader({ currentView, onNavigate, user, profile }) {
           })}
         </nav>
 
-        <button
-          type="button"
-          className="header-profile-button"
-          onClick={() => onNavigate("profile")}
-          aria-label="Abrir perfil"
-        >
+        <button type="button" className="header-profile-button" onClick={() => onNavigate("profile")} aria-label="Abrir perfil">
           <span className="header-profile-button__avatar">{getInitials(profile, user)}</span>
           <span className="header-profile-button__copy">
             <strong>{profile?.alias || "Mi perfil"}</strong>

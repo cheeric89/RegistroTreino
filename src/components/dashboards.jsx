@@ -7,6 +7,7 @@ import {
   Flame,
   Play,
   RotateCcw,
+  Settings2,
   Sparkles,
   TrendingUp,
 } from "lucide-react";
@@ -65,9 +66,7 @@ const formatDuration = (seconds) => {
 };
 
 const getCategories = (workout) => {
-  if (Array.isArray(workout?.categories) && workout.categories.length) {
-    return workout.categories;
-  }
+  if (Array.isArray(workout?.categories) && workout.categories.length) return workout.categories;
   return (workout?.exercises || []).map((category) => category?.name).filter(Boolean);
 };
 
@@ -79,10 +78,7 @@ const startOfLocalDay = (value) => {
 
 const calculateStreak = (workouts) => {
   const days = new Set(
-    workouts
-      .map(getWorkoutTimestamp)
-      .filter(Boolean)
-      .map(startOfLocalDay)
+    workouts.map(getWorkoutTimestamp).filter(Boolean).map(startOfLocalDay)
   );
 
   if (!days.size) return 0;
@@ -103,6 +99,7 @@ export default function Dashboard({
   user,
   profile,
   onStart,
+  onManageRoutines,
   onOpenHistory,
   onRepeatWorkout,
 }) {
@@ -145,9 +142,7 @@ export default function Dashboard({
     <div className="dashboard-screen page-shell">
       <section className="dashboard-intro">
         <div>
-          <p className="dashboard-greeting">
-            {getGreeting()}, <strong>{displayName}</strong>
-          </p>
+          <p className="dashboard-greeting">{getGreeting()}, <strong>{displayName}</strong></p>
           <h1>Haz que cada sesión sume.</h1>
           <p className="dashboard-intro__copy">
             Registra lo que levantas, recupera tus marcas anteriores y mantén visible tu progreso.
@@ -170,18 +165,20 @@ export default function Dashboard({
       <section className="dashboard-primary-grid" aria-label="Acciones principales">
         <article className="start-workout-card">
           <div className="start-workout-card__glow" />
-          <div className="start-workout-card__icon" aria-hidden="true">
-            <Dumbbell size={26} />
-          </div>
+          <div className="start-workout-card__icon" aria-hidden="true"><Dumbbell size={26} /></div>
           <div className="start-workout-card__content">
             <span className="card-kicker">Entrenamiento de hoy</span>
             <h2>Empieza una nueva sesión</h2>
-            <p>Elige una plantilla o arma tu rutina desde cero.</p>
+            <p>Abre tu Push, Pull o Legs personalizada y sigue progresando en los mismos ejercicios.</p>
           </div>
           <button type="button" className="primary-action-button" onClick={onStart}>
             <Play size={18} fill="currentColor" />
             Iniciar entrenamiento
             <ArrowRight size={18} />
+          </button>
+          <button type="button" className="secondary-action-button dashboard-routines-button" onClick={() => onManageRoutines?.("push")}>
+            <Settings2 size={16} />
+            Editar mis rutinas
           </button>
         </article>
 
@@ -216,24 +213,16 @@ export default function Dashboard({
 
       {dashboardData.latest && (
         <section className="continue-card">
-          <div className="continue-card__icon" aria-hidden="true">
-            <RotateCcw size={21} />
-          </div>
+          <div className="continue-card__icon" aria-hidden="true"><RotateCcw size={21} /></div>
           <div className="continue-card__body">
             <span className="card-kicker">Continúa progresando</span>
             <h2>Repite tu última sesión: {dashboardData.latest.day || "Entrenamiento"}</h2>
             <div className="continue-card__meta">
               <span>{dashboardData.latest.date || "Fecha no disponible"}</span>
-              {latestCategories.length > 0 && (
-                <span>{latestCategories.slice(0, 3).join(" · ")}</span>
-              )}
+              {latestCategories.length > 0 && <span>{latestCategories.slice(0, 3).join(" · ")}</span>}
             </div>
           </div>
-          <button
-            type="button"
-            className="secondary-action-button"
-            onClick={() => onRepeatWorkout(dashboardData.latest)}
-          >
+          <button type="button" className="secondary-action-button" onClick={() => onRepeatWorkout(dashboardData.latest)}>
             Repetir
             <ArrowRight size={17} />
           </button>
@@ -262,9 +251,7 @@ export default function Dashboard({
                   <span>{group.label}</span>
                   <strong>{group.count}</strong>
                 </div>
-
                 <p>{group.subtitle}</p>
-
                 <div className="history-overview-card__footer">
                   <div>
                     <small>Última sesión</small>
@@ -272,11 +259,7 @@ export default function Dashboard({
                   </div>
                   <div>
                     <small>Marca destacada</small>
-                    <span>
-                      {group.bestMark
-                        ? `${group.bestMark.weight || 0} kg × ${group.bestMark.reps || 0}`
-                        : "—"}
-                    </span>
+                    <span>{group.bestMark ? `${group.bestMark.weight || 0} kg × ${group.bestMark.reps || 0}` : "—"}</span>
                   </div>
                   <ArrowRight size={17} />
                 </div>
@@ -285,14 +268,10 @@ export default function Dashboard({
           </div>
         ) : (
           <div className="dashboard-empty-state">
-            <div className="dashboard-empty-state__icon">
-              <Dumbbell size={24} />
-            </div>
+            <div className="dashboard-empty-state__icon"><Dumbbell size={24} /></div>
             <h3>Tu historial empieza aquí</h3>
             <p>Completa tu primera sesión para organizarla automáticamente y recuperar tus marcas.</p>
-            <button type="button" className="secondary-action-button" onClick={onStart}>
-              Crear primera sesión
-            </button>
+            <button type="button" className="secondary-action-button" onClick={onStart}>Crear primera sesión</button>
           </div>
         )}
       </section>
