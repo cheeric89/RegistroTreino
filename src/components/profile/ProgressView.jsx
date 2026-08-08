@@ -14,6 +14,7 @@ import {
   getTotalSessions,
   getTotalVolume,
 } from "../../utils/workoutStats";
+import ExerciseProgress from "./ExerciseProgress";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -195,6 +196,8 @@ export default function ProgressView() {
           )}
         </section>
       </div>
+
+      <ExerciseProgress workouts={workouts} />
     </div>
   );
 }
