@@ -1,4 +1,4 @@
-import { ChevronLeft, Clock3, Dumbbell, RotateCcw } from "lucide-react";
+import { ChevronLeft, Clock3, Dumbbell, Pencil, RotateCcw } from "lucide-react";
 
 const formatDuration = (seconds) => {
   if (!seconds) return "No disponible";
@@ -7,7 +7,7 @@ const formatDuration = (seconds) => {
   return hours > 0 ? `${hours} h ${minutes} min` : `${minutes} min`;
 };
 
-export default function WorkoutDetail({ workout, onBack, onRepeat }) {
+export default function WorkoutDetail({ workout, onBack, onRepeat, onEdit }) {
   if (!workout) return null;
 
   return (
@@ -43,12 +43,17 @@ export default function WorkoutDetail({ workout, onBack, onRepeat }) {
           <span className="repeat-workout-card__icon"><RotateCcw size={21} /></span>
           <div>
             <span className="card-kicker">Usar como base</span>
-            <h2>Repite este entrenamiento</h2>
-            <p>Se copiarán los ejercicios y la cantidad de series para empezar una nueva sesión.</p>
+            <h2>Repite o corrige este entrenamiento</h2>
+            <p>Repite la estructura para una sesión nueva o edita un dato si registraste algo mal.</p>
           </div>
-          <button type="button" className="secondary-action-button" onClick={() => onRepeat(workout)}>
-            Repetir rutina
-          </button>
+          <div className="workout-detail-action-group">
+            <button type="button" className="secondary-action-button" onClick={() => onRepeat(workout)}>
+              <RotateCcw size={16} /> Repetir
+            </button>
+            <button type="button" className="secondary-action-button workout-detail-edit-button" onClick={() => onEdit?.(workout)}>
+              <Pencil size={16} /> Editar sesión
+            </button>
+          </div>
         </section>
 
         <div className="workout-detail-categories">
