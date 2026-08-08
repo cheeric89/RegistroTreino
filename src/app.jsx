@@ -243,7 +243,12 @@ export default function App() {
         )}
 
         {view === VIEWS.SUMMARY && (
-          <WorkoutSummary workout={savedWorkout} onDone={handleReset} />
+          <WorkoutSummary
+            workout={savedWorkout}
+            onDone={handleReset}
+            onRepeat={handleRepeatWorkout}
+            onOpenHistory={handleOpenHistory}
+          />
         )}
       </main>
 
