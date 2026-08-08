@@ -1,5 +1,10 @@
 // src/utils/storage.js — persistencia local y cache offline-first
 
+import {
+  choosePreferredExerciseName,
+  normalizeExerciseName,
+} from "./exerciseNames";
+
 const LEGACY_WORKOUTS_KEY = "treino_workouts";
 const ACTIVE_USER_KEY = "treino_active_workout_user";
 const DRAFT_KEY = "treino_workout_draft";
@@ -177,13 +182,13 @@ export function markLegacyWorkoutsMigrated(userId) {
 }
 
 export function getLastExercisePerformance(exerciseName) {
-  const normalizedName = exerciseName?.trim().toLocaleLowerCase("es");
+  const normalizedName = normalizeExerciseName(exerciseName);
   if (!normalizedName) return null;
 
   for (const workout of getAllWorkouts()) {
     for (const category of workout.exercises || []) {
       for (const exercise of category.exercises || []) {
-        if (exercise.name?.trim().toLocaleLowerCase("es") === normalizedName) {
+        if (normalizeExerciseName(exercise.name) === normalizedName) {
           return exercise.sets || [];
         }
       }
@@ -223,14 +228,23 @@ export function saveLocalProfile(profile) {
 export function getExerciseSuggestions() {
   const exercisesMap = new Map();
 
+  // getAllWorkouts() viene ordenado desde la sesión más reciente. Conservamos
+  // sus series como referencia, pero podemos mejorar el nombre visible si una
+  // variante histórica está mejor formateada.
   getAllWorkouts().forEach((workout) => {
     (workout.exercises || []).forEach((category) => {
       (category.exercises || []).forEach((exercise) => {
         const name = exercise.name?.trim();
         if (!name) return;
 
-        const key = name.toLocaleLowerCase("es");
-        if (exercisesMap.has(key)) return;
+        const key = normalizeExerciseName(name);
+        if (!key) return;
+
+        const existing = exercisesMap.get(key);
+        if (existing) {
+          existing.name = choosePreferredExerciseName(existing.name, name);
+          return;
+        }
 
         exercisesMap.set(key, {
           name,
