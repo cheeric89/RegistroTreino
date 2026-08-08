@@ -94,3 +94,28 @@
   margin-left: auto;
   color: #94a3b8;
 }
+
+.dashboard-routines-button {
+  margin-top: 8px;
+}
+
+.workout-detail-action-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.workout-detail-edit-button {
+  color: #e9d5ff;
+  border-color: rgba(168, 85, 247, 0.28);
+}
+
+.bottom-navigation__inner {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+@media (max-width: 360px) {
+  .bottom-navigation__item {
+    font-size: 0.59rem;
+  }
+}
