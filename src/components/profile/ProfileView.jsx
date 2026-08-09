@@ -4,6 +4,7 @@ import {
   LogOut,
   Save,
   Settings,
+  Target,
   Trophy,
   User,
   X,
@@ -11,11 +12,13 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "../../contexts/AuthContext";
 import { useProfile } from "../../hooks/useProfile";
+import GoalsView from "./GoalsView";
 import PRsView from "./PRsView";
 import SettingsView from "./SettingsView";
 
 const TABS = [
   { id: "overview", label: "Perfil", icon: User },
+  { id: "goals", label: "Objetivos", icon: Target },
   { id: "prs", label: "Récords", icon: Trophy },
   { id: "settings", label: "Ajustes", icon: Settings },
 ];
@@ -78,11 +81,9 @@ export default function ProfileView({ initialTab = "overview" }) {
         <div>
           <span className="page-eyebrow">Centro personal</span>
           <h1>Tu cuenta</h1>
-          <p>Administra tus datos, récords y preferencias de entrenamiento.</p>
+          <p>Administra tus datos, objetivos, récords y preferencias de entrenamiento.</p>
         </div>
-        <div className="profile-heading__avatar" aria-hidden="true">
-          {getInitials(profile, user)}
-        </div>
+        <div className="profile-heading__avatar" aria-hidden="true">{getInitials(profile, user)}</div>
       </header>
 
       <div className="profile-tabs" role="tablist" aria-label="Secciones del perfil">
@@ -104,18 +105,12 @@ export default function ProfileView({ initialTab = "overview" }) {
       <div className="profile-content">
         {tab === "overview" && (
           loading ? (
-            <div className="profile-loading-card" aria-label="Cargando perfil">
-              <span />
-              <span />
-              <span />
-            </div>
+            <div className="profile-loading-card" aria-label="Cargando perfil"><span /><span /><span /></div>
           ) : !editing ? (
             <div className="profile-overview-grid">
               <section className="profile-identity-card">
                 <div className="profile-identity-card__top">
-                  <div className="profile-avatar-large">
-                    {getInitials(profile, user)}
-                  </div>
+                  <div className="profile-avatar-large">{getInitials(profile, user)}</div>
                   <div>
                     <span className="card-kicker">Atleta Treino</span>
                     <h2>{profile?.alias || "Atleta"}</h2>
@@ -124,101 +119,51 @@ export default function ProfileView({ initialTab = "overview" }) {
                 </div>
 
                 <div className="profile-metrics">
-                  <div>
-                    <span>Peso</span>
-                    <strong>{profile?.weight_kg ? `${profile.weight_kg} kg` : "—"}</strong>
-                  </div>
-                  <div>
-                    <span>Altura</span>
-                    <strong>{profile?.height_cm ? `${profile.height_cm} cm` : "—"}</strong>
-                  </div>
-                  <div>
-                    <span>IMC</span>
-                    <strong>{bmi}</strong>
-                  </div>
+                  <div><span>Peso</span><strong>{profile?.weight_kg ? `${profile.weight_kg} kg` : "—"}</strong></div>
+                  <div><span>Altura</span><strong>{profile?.height_cm ? `${profile.height_cm} cm` : "—"}</strong></div>
+                  <div><span>IMC</span><strong>{bmi}</strong></div>
                 </div>
               </section>
 
               <aside className="profile-actions-card">
                 <span className="card-kicker">Datos personales</span>
                 <h2>Mantén tu perfil actualizado</h2>
-                <p>Estos datos ayudarán a personalizar futuras métricas y recomendaciones.</p>
-                <button
-                  type="button"
-                  className="primary-action-button"
-                  onClick={() => setEditing(true)}
-                >
-                  <Edit3 size={17} />
-                  Editar información
-                </button>
-                <button
-                  type="button"
-                  className="profile-logout-button"
-                  onClick={handleLogout}
-                >
-                  <LogOut size={17} />
-                  Cerrar sesión
-                </button>
+                <p>Estos datos alimentan tus métricas y la nueva sección de objetivos.</p>
+                <button type="button" className="primary-action-button" onClick={() => setEditing(true)}><Edit3 size={17} /> Editar información</button>
+                <button type="button" className="profile-logout-button" onClick={handleLogout}><LogOut size={17} /> Cerrar sesión</button>
               </aside>
             </div>
           ) : (
             <form className="profile-edit-card" onSubmit={handleSubmit}>
               <div className="section-heading section-heading--compact">
-                <div>
-                  <span className="card-kicker">Editar perfil</span>
-                  <h2>Información personal</h2>
-                </div>
+                <div><span className="card-kicker">Editar perfil</span><h2>Información personal</h2></div>
                 <Edit3 size={20} />
               </div>
 
               <div className="profile-form-grid">
                 <label className="profile-field profile-field--wide">
                   <span>Alias</span>
-                  <input
-                    value={form.alias}
-                    onChange={(event) => setForm((current) => ({ ...current, alias: event.target.value }))}
-                    placeholder="Cómo quieres que te llamemos"
-                  />
+                  <input value={form.alias} onChange={(event) => setForm((current) => ({ ...current, alias: event.target.value }))} placeholder="Cómo quieres que te llamemos" />
                 </label>
                 <label className="profile-field">
                   <span>Peso (kg)</span>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="0.1"
-                    value={form.weight_kg}
-                    onChange={(event) => setForm((current) => ({ ...current, weight_kg: event.target.value }))}
-                    placeholder="70"
-                  />
+                  <input type="number" inputMode="decimal" min="0" step="0.1" value={form.weight_kg} onChange={(event) => setForm((current) => ({ ...current, weight_kg: event.target.value }))} placeholder="70" />
                 </label>
                 <label className="profile-field">
                   <span>Altura (cm)</span>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min="0"
-                    value={form.height_cm}
-                    onChange={(event) => setForm((current) => ({ ...current, height_cm: event.target.value }))}
-                    placeholder="175"
-                  />
+                  <input type="number" inputMode="numeric" min="0" value={form.height_cm} onChange={(event) => setForm((current) => ({ ...current, height_cm: event.target.value }))} placeholder="175" />
                 </label>
               </div>
 
               <div className="profile-edit-actions">
-                <button type="button" className="dialog-button" onClick={() => setEditing(false)}>
-                  <X size={17} />
-                  Cancelar
-                </button>
-                <button type="submit" className="primary-action-button" disabled={saving}>
-                  <Save size={17} />
-                  {saving ? "Guardando..." : "Guardar cambios"}
-                </button>
+                <button type="button" className="dialog-button" onClick={() => setEditing(false)}><X size={17} /> Cancelar</button>
+                <button type="submit" className="primary-action-button" disabled={saving}><Save size={17} /> {saving ? "Guardando..." : "Guardar cambios"}</button>
               </div>
             </form>
           )
         )}
 
+        {tab === "goals" && <GoalsView />}
         {tab === "prs" && <PRsView />}
         {tab === "settings" && <SettingsView />}
       </div>
