@@ -1,8 +1,10 @@
 import { normalizeExerciseName } from "./exerciseNames";
 import { getLocalRoutines } from "./routineStorage";
+import { isWarmupSet } from "./smartProgression";
 
 export const DEFAULT_REP_MIN = 8;
 export const DEFAULT_REP_MAX = 12;
+export const DEFAULT_REST_SECONDS = 120;
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, Number(value) || min));
 
@@ -10,6 +12,20 @@ export const normalizeRepRange = (exercise = {}) => {
   const repMin = clamp(exercise.repMin ?? DEFAULT_REP_MIN, 1, 50);
   const repMax = clamp(exercise.repMax ?? DEFAULT_REP_MAX, repMin, 60);
   return { repMin, repMax };
+};
+
+export const normalizeExercisePrescription = (exercise = {}) => {
+  const { repMin, repMax } = normalizeRepRange(exercise);
+  return {
+    repMin,
+    repMax,
+    sets: clamp(exercise.sets ?? 3, 1, 8),
+    restSeconds: clamp(exercise.restSeconds ?? DEFAULT_REST_SECONDS, 30, 600),
+    warmupSets: Math.min(4, Math.max(0, Number(exercise.warmupSets) || 0)),
+    autoRest: exercise.autoRest !== false,
+    favorite: exercise.favorite === true,
+    deload: exercise.deload === true,
+  };
 };
 
 export const getExercisePrescription = (exerciseName) => {
@@ -24,15 +40,12 @@ export const getExercisePrescription = (exerciseName) => {
       );
 
       if (!exercise) continue;
-      const { repMin, repMax } = normalizeRepRange(exercise);
       return {
         key,
         routineType: routine.type,
         routineName: routine.name || routine.type || "Rutina",
         categoryName: category.name || "Grupo",
-        sets: Math.min(8, Math.max(1, Number(exercise.sets) || 1)),
-        repMin,
-        repMax,
+        ...normalizeExercisePrescription(exercise),
       };
     }
   }
@@ -42,7 +55,7 @@ export const getExercisePrescription = (exerciseName) => {
 
 const completedWorkingSets = (sets = [], plannedSets = 1) =>
   sets
-    .filter((set) => set?.done === true && Number(set?.reps) > 0)
+    .filter((set) => !isWarmupSet(set) && set?.done === true && Number(set?.reps) > 0)
     .slice(0, plannedSets)
     .map((set) => ({
       weight: Number(set?.weight) || 0,
@@ -53,12 +66,15 @@ export const getRepRangeProgress = (sets = [], prescription = null) => {
   if (!prescription) return null;
 
   const plannedSets = Math.max(1, Number(prescription.sets) || 1);
+  const effectivePlannedSets = prescription.deload
+    ? Math.max(1, plannedSets - 1)
+    : plannedSets;
   const repMin = Math.max(1, Number(prescription.repMin) || DEFAULT_REP_MIN);
   const repMax = Math.max(repMin, Number(prescription.repMax) || DEFAULT_REP_MAX);
-  const completed = completedWorkingSets(sets, plannedSets);
+  const completed = completedWorkingSets(sets, effectivePlannedSets);
   const completedCount = completed.length;
-  const remainingSets = Math.max(0, plannedSets - completedCount);
-  const allPlannedDone = completedCount >= plannedSets;
+  const remainingSets = Math.max(0, effectivePlannedSets - completedCount);
+  const allPlannedDone = completedCount >= effectivePlannedSets;
   const reps = completed.map((set) => set.reps);
   const lowestReps = reps.length ? Math.min(...reps) : 0;
   const highestReps = reps.length ? Math.max(...reps) : 0;
@@ -66,14 +82,19 @@ export const getRepRangeProgress = (sets = [], prescription = null) => {
   const atTop = completed.filter((set) => set.reps >= repMax).length;
 
   let state = "waiting";
-  if (completedCount > 0) state = "active";
-  if (belowRange > 0) state = "below_range";
-  else if (allPlannedDone && atTop >= plannedSets) state = "ready_to_increase";
-  else if (allPlannedDone) state = "progressing";
+  if (prescription.deload) state = completedCount > 0 ? "deload_active" : "deload_waiting";
+  else if (completedCount > 0) state = "active";
+
+  if (!prescription.deload) {
+    if (belowRange > 0) state = "below_range";
+    else if (allPlannedDone && atTop >= effectivePlannedSets) state = "ready_to_increase";
+    else if (allPlannedDone) state = "progressing";
+  }
 
   return {
     state,
-    plannedSets,
+    plannedSets: effectivePlannedSets,
+    originalPlannedSets: plannedSets,
     completedCount,
     remainingSets,
     repMin,
@@ -83,5 +104,6 @@ export const getRepRangeProgress = (sets = [], prescription = null) => {
     belowRange,
     atTop,
     allPlannedDone,
+    deload: prescription.deload === true,
   };
 };
