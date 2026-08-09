@@ -12,6 +12,7 @@ alter table if exists public.profiles
   add column if not exists target_weight_kg numeric,
   add column if not exists activity_level text,
   add column if not exists weekly_training_goal integer,
+  add column if not exists weight_trend text,
   add column if not exists nutrition_tracking_enabled boolean not null default false,
   add column if not exists muscle_targets jsonb not null default '{}'::jsonb;
 
@@ -23,6 +24,8 @@ comment on column public.profiles.activity_level is
   'Nivel de actividad declarado por el usuario, preparado para futura nutrición.';
 comment on column public.profiles.weekly_training_goal is
   'Cantidad objetivo de sesiones por semana.';
+comment on column public.profiles.weight_trend is
+  'Tendencia corporal declarada: gaining, stable, losing o unknown.';
 comment on column public.profiles.nutrition_tracking_enabled is
   'Reserva para habilitar el módulo de nutrición cuando se implemente.';
 comment on column public.profiles.muscle_targets is
