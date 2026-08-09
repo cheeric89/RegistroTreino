@@ -1,10 +1,3 @@
-// src/hooks/useProfile.js
-// Capa de acceso a datos del perfil — mismo patrón que useWorkouts.js:
-// Supabase como fuente principal, localStorage como fallback/caché.
-//
-// SUPABASE TABLE SCHEMA: ver sql/001_user_control_center.sql
-//   tabla public.user_stats, una fila por usuario (unique en user_id)
-
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
@@ -19,15 +12,11 @@ export function useProfile() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  /** Carga el perfil del usuario actual (Supabase, con fallback local) */
   const fetchProfile = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     if (!user) {
-      // Sin sesión: no debería pasar en el flujo normal de la app (el
-      // auth gate de App.jsx ya exige login), pero lo cubrimos por
-      // si en el futuro se habilita un modo invitado.
       setProfile(getLocalProfile());
       setLoading(false);
       return;
@@ -44,7 +33,6 @@ export function useProfile() {
       setError(err.message);
       setProfile(getLocalProfile());
     } else {
-      // data === null la primera vez (todavía no existe la fila)
       setProfile(data ?? getLocalProfile());
     }
 
@@ -55,12 +43,9 @@ export function useProfile() {
     fetchProfile();
   }, [fetchProfile]);
 
-  /** Guarda (upsert) los campos editados del perfil */
   const saveProfile = useCallback(
     async (updates) => {
       setSaving(true);
-
-      // Caché local siempre se actualiza primero (instantáneo, funciona offline)
       const merged = { ...profile, ...updates };
       saveLocalProfile(merged);
 
@@ -69,37 +54,29 @@ export function useProfile() {
         setSaving(false);
         return { error: null };
       }
-      // 👇 Agrega esto
-      console.log("Usuario:", user);
-      console.log("Actualizando:", {
-        id: user.id,
-        ...updates,
-      });
 
       const { data, error: err } = await supabase
         .from(TABLE)
-        
         .upsert({ id: user.id, ...updates }, { onConflict: "id" })
         .select()
         .single();
-              console.log("Respuesta Supabase:", data);
-      console.log("Error Supabase:", err);
 
       setSaving(false);
 
       if (err) {
         console.warn("[useProfile] guardado falló:", err.message);
+        setProfile(merged);
+        setError(err.message);
         return { error: err.message };
       }
 
       setProfile(data);
+      setError(null);
+      saveLocalProfile(data);
       return { error: null };
     },
     [user, profile]
   );
-  // 👇 Y esto también
-
-
 
   return { profile, loading, saving, error, fetchProfile, saveProfile };
 }
