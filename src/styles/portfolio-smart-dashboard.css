@@ -1,0 +1,475 @@
+.smart-dashboard {
+  display: grid;
+  gap: 18px;
+}
+
+.today-training-card,
+.training-heatmap-card,
+.recovery-card,
+.muscle-balance-card,
+.pr-month-card,
+.pr-dashboard-card {
+  border: 1px solid rgba(148, 163, 184, 0.11);
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0.82), rgba(8, 11, 20, 0.9));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.today-training-card {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 20px;
+  align-items: center;
+  padding: 22px;
+  border-color: rgba(168, 85, 247, 0.22);
+  background:
+    radial-gradient(circle at 8% 0%, rgba(168, 85, 247, 0.18), transparent 38%),
+    linear-gradient(135deg, rgba(30, 20, 48, 0.9), rgba(8, 11, 20, 0.92));
+}
+
+.today-training-card--recovering {
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+.today-training-card__main {
+  display: grid;
+  gap: 14px;
+}
+
+.today-training-card__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  color: #d8b4fe;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+}
+
+.today-training-card__title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.today-training-card__title > span {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  font-size: 1.55rem;
+  border: 1px solid rgba(168, 85, 247, 0.22);
+  border-radius: 14px;
+  background: rgba(88, 28, 135, 0.12);
+}
+
+.today-training-card__title h2,
+.smart-card-heading h2 {
+  margin: 0;
+  color: #f8fafc;
+}
+
+.today-training-card__title h2 {
+  font-size: clamp(1.35rem, 3vw, 1.85rem);
+}
+
+.today-training-card__title p {
+  margin: 3px 0 0;
+  color: var(--text-muted, #9ca3af);
+  font-size: 0.82rem;
+}
+
+.today-training-card__metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.today-training-card__metrics > span {
+  display: grid;
+  grid-template-columns: auto auto;
+  column-gap: 6px;
+  align-items: center;
+  min-width: 128px;
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.09);
+  border-radius: 11px;
+  background: rgba(15, 23, 42, 0.38);
+}
+
+.today-training-card__metrics svg {
+  color: #c084fc;
+}
+
+.today-training-card__metrics strong {
+  color: #f8fafc;
+  font-size: 0.75rem;
+}
+
+.today-training-card__metrics small {
+  grid-column: 2;
+  color: #94a3b8;
+  font-size: 0.58rem;
+}
+
+.today-training-card__metrics > span.is-ready strong {
+  color: #6ee7b7;
+}
+
+.today-training-card__metrics > span.is-partial strong,
+.today-training-card__metrics > span.is-recovering strong {
+  color: #fbbf24;
+}
+
+.today-training-card__actions {
+  display: grid;
+  gap: 9px;
+  min-width: 205px;
+}
+
+.smart-dashboard__two-column,
+.smart-dashboard__records-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.training-heatmap-card,
+.recovery-card,
+.muscle-balance-card,
+.pr-month-card,
+.pr-dashboard-card {
+  padding: 18px;
+}
+
+.smart-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.smart-card-heading h2 {
+  margin-top: 3px;
+  font-size: 1.05rem;
+}
+
+.smart-card-heading > svg {
+  color: #c084fc;
+}
+
+.training-heatmap-scroll {
+  overflow-x: auto;
+  padding-bottom: 5px;
+}
+
+.training-heatmap {
+  width: max-content;
+  display: grid;
+  grid-template-rows: repeat(7, 10px);
+  grid-auto-flow: column;
+  grid-auto-columns: 10px;
+  gap: 3px;
+}
+
+.training-heatmap__day,
+.training-heatmap-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.training-heatmap__day.level-1,
+.training-heatmap-legend i.level-1 {
+  background: rgba(168, 85, 247, 0.28);
+}
+
+.training-heatmap__day.level-2,
+.training-heatmap-legend i.level-2 {
+  background: rgba(168, 85, 247, 0.58);
+}
+
+.training-heatmap__day.level-3,
+.training-heatmap-legend i.level-3 {
+  background: #a855f7;
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.24);
+}
+
+.training-heatmap-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 9px;
+  color: #64748b;
+  font-size: 0.58rem;
+}
+
+.recovery-card__note {
+  margin: -4px 0 12px;
+  color: #64748b;
+  font-size: 0.64rem;
+  line-height: 1.45;
+}
+
+.recovery-list {
+  display: grid;
+  gap: 7px;
+}
+
+.recovery-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.08);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.28);
+}
+
+.recovery-item > div {
+  display: grid;
+  gap: 1px;
+}
+
+.recovery-item strong {
+  color: #e2e8f0;
+  font-size: 0.72rem;
+}
+
+.recovery-item span,
+.recovery-item small {
+  color: #64748b;
+  font-size: 0.59rem;
+}
+
+.recovery-item--ready small {
+  color: #6ee7b7;
+}
+
+.recovery-item--partial small,
+.recovery-item--recovering small {
+  color: #fbbf24;
+}
+
+.muscle-balance-table {
+  display: grid;
+}
+
+.muscle-balance-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.8fr) minmax(170px, 1.5fr) minmax(100px, 0.8fr) 64px;
+  gap: 14px;
+  align-items: center;
+  padding: 11px 4px;
+  border-top: 1px solid rgba(148, 163, 184, 0.07);
+}
+
+.muscle-balance-row:first-child {
+  border-top: 0;
+}
+
+.muscle-balance-row__name,
+.muscle-balance-row__volume {
+  display: grid;
+  gap: 2px;
+}
+
+.muscle-balance-row__name strong,
+.muscle-balance-row__volume strong {
+  color: #e2e8f0;
+  font-size: 0.72rem;
+}
+
+.muscle-balance-row__name span,
+.muscle-balance-row__volume span,
+.muscle-balance-row__bar small,
+.muscle-target-input > span {
+  color: #64748b;
+  font-size: 0.58rem;
+}
+
+.muscle-balance-row__bar {
+  display: grid;
+  gap: 4px;
+}
+
+.muscle-balance-row__bar > div {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.muscle-balance-row__bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7c3aed, #c084fc);
+}
+
+.muscle-target-input {
+  display: grid;
+  gap: 3px;
+  justify-items: center;
+}
+
+.muscle-target-input input {
+  width: 54px;
+  padding: 6px;
+  color: #f8fafc;
+  text-align: center;
+  border: 1px solid rgba(168, 85, 247, 0.15);
+  border-radius: 9px;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.pr-month-card__content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: 13px;
+  background: linear-gradient(135deg, rgba(120, 53, 15, 0.13), rgba(15, 23, 42, 0.28));
+}
+
+.pr-month-card__icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.22);
+  border-radius: 13px;
+  background: rgba(120, 53, 15, 0.11);
+}
+
+.pr-month-card__content > div:last-child {
+  display: grid;
+  gap: 2px;
+}
+
+.pr-month-card__content strong {
+  color: #f8fafc;
+  font-size: 0.8rem;
+}
+
+.pr-month-card__content span {
+  color: #fbbf24;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.pr-month-card__content small,
+.smart-empty-mini {
+  color: #64748b;
+  font-size: 0.61rem;
+}
+
+.pr-dashboard-list {
+  display: grid;
+}
+
+.pr-dashboard-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 9px 2px;
+  border-top: 1px solid rgba(148, 163, 184, 0.07);
+}
+
+.pr-dashboard-item:first-child {
+  border-top: 0;
+}
+
+.pr-dashboard-item > div {
+  display: grid;
+  gap: 2px;
+}
+
+.pr-dashboard-item > div:last-child {
+  text-align: right;
+}
+
+.pr-dashboard-item strong {
+  color: #e2e8f0;
+  font-size: 0.69rem;
+}
+
+.pr-dashboard-item span {
+  color: #64748b;
+  font-size: 0.58rem;
+}
+
+@media (max-width: 900px) {
+  .today-training-card {
+    grid-template-columns: 1fr;
+  }
+
+  .today-training-card__actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .smart-dashboard__two-column,
+  .smart-dashboard__records-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .muscle-balance-row {
+    grid-template-columns: minmax(95px, 0.8fr) minmax(120px, 1.3fr) 54px;
+  }
+
+  .muscle-balance-row__volume {
+    grid-column: 1 / 3;
+    grid-row: 2;
+  }
+
+  .muscle-target-input {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+  }
+}
+
+@media (max-width: 520px) {
+  .today-training-card,
+  .training-heatmap-card,
+  .recovery-card,
+  .muscle-balance-card,
+  .pr-month-card,
+  .pr-dashboard-card {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .today-training-card__actions {
+    grid-template-columns: 1fr;
+  }
+
+  .today-training-card__metrics > span {
+    min-width: calc(50% - 4px);
+    flex: 1 1 calc(50% - 4px);
+  }
+
+  .muscle-balance-row {
+    gap: 8px;
+  }
+
+  .pr-dashboard-item {
+    align-items: start;
+    grid-template-columns: 1fr;
+  }
+
+  .pr-dashboard-item > div:last-child {
+    text-align: left;
+  }
+}
