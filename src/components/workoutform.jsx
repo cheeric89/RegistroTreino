@@ -13,12 +13,14 @@ import { getPRStatus } from "../utils/progressionEngine";
 import { getExercisePrescription } from "../utils/repRangeProgression";
 import { isWarmupSet } from "../utils/smartProgression";
 import ExerciseLiveContext from "./ExerciseLiveContext";
+import RirPicker from "./ui/RirPicker";
 import "./workoutform-autocomplete.css";
 
 const newSet = (set = {}) => ({
   id: Date.now() + Math.random(),
   weight: set.weight ?? "",
   reps: set.reps ?? "",
+  rir: set.rir ?? "",
   done: false,
   setType: set.setType || set.type || "working",
 });
@@ -30,11 +32,13 @@ const initCategory = (name, preset = null) => ({
     ? preset.map((exercise) => ({
         ...exercise,
         name: exercise.name || "",
+        notes: exercise.notes || "",
+        supersetGroup: exercise.supersetGroup || "",
         sets: exercise.sets?.length
           ? exercise.sets.map((set) => newSet(set))
           : [newSet()],
       }))
-    : [{ name: "Ejercicio 1", sets: [newSet()] }],
+    : [{ name: "Ejercicio 1", notes: "", supersetGroup: "", sets: [newSet()] }],
 });
 
 const normalize = (value = "") => value.trim().toLocaleLowerCase("es");
@@ -100,6 +104,14 @@ const stripWarmupsForHistory = (categories = []) =>
     })),
   }));
 
+const getSupersetPeers = (category, exercise, exerciseIndex) => {
+  const group = exercise?.supersetGroup;
+  if (!group) return [];
+  return (category?.exercises || [])
+    .map((item, index) => ({ item, index }))
+    .filter(({ item, index }) => index !== exerciseIndex && item?.supersetGroup === group);
+};
+
 export default function WorkoutForm({
   day,
   categories = [],
@@ -138,8 +150,11 @@ export default function WorkoutForm({
       name: category.name,
       expanded: true,
       exercises: (category.exercises || []).map((exercise) => ({
+        ...exercise,
         name: exercise.name,
-        sets: exercise.sets?.length ? exercise.sets.map(() => newSet()) : [newSet()],
+        notes: exercise.notes || "",
+        supersetGroup: exercise.supersetGroup || "",
+        sets: exercise.sets?.length ? exercise.sets.map((set) => newSet({ ...set, setType: "working" })) : [newSet()],
       })),
     }));
   });
@@ -251,14 +266,14 @@ export default function WorkoutForm({
   const addExercise = useCallback((ci) => {
     updateCategory(ci, (category) => ({
       ...category,
-      exercises: [...category.exercises, { name: "", sets: [newSet()] }],
+      exercises: [...category.exercises, { name: "", notes: "", supersetGroup: "", sets: [newSet()] }],
     }));
   }, [updateCategory]);
 
   const addCategory = useCallback(() => {
     const name = newCategoryName.trim();
     if (!name) return;
-    setCatData((previous) => [...previous, { name, expanded: true, exercises: [{ name: "", sets: [newSet()] }] }]);
+    setCatData((previous) => [...previous, { name, expanded: true, exercises: [{ name: "", notes: "", supersetGroup: "", sets: [newSet()] }] }]);
     setNewCategoryName("");
     setShowCategoryModal(false);
   }, [newCategoryName]);
@@ -305,7 +320,6 @@ export default function WorkoutForm({
 
   const updateSet = useCallback((ci, ei, si, field, value) => {
     const nextValue = field === "weight" ? normalizeWeightInput(value) : value;
-
     updateExercise(ci, ei, (exercise) => ({
       ...exercise,
       sets: exercise.sets.map((set, index) =>
@@ -315,7 +329,8 @@ export default function WorkoutForm({
   }, [updateExercise]);
 
   const toggleDone = useCallback((ci, ei, si) => {
-    const exercise = catData?.[ci]?.exercises?.[ei];
+    const category = catData?.[ci];
+    const exercise = category?.exercises?.[ei];
     const set = exercise?.sets?.[si];
     if (!exercise || !set) return;
 
@@ -327,14 +342,30 @@ export default function WorkoutForm({
       ),
     }));
 
-    if (willComplete && !isWarmupSet(set)) {
-      const prescription = getExercisePrescription(exercise.name);
-      if (prescription?.autoRest !== false) {
-        startRestTimer(
-          prescription?.restSeconds || profile?.rest_time_seconds || 120,
-          exercise.name
-        );
+    if (!willComplete || isWarmupSet(set)) return;
+
+    const prescription = getExercisePrescription(exercise.name);
+    const group = exercise.supersetGroup || prescription?.supersetGroup || "";
+    const peers = getSupersetPeers(category, exercise, ei);
+
+    if (group && peers.length) {
+      const groupIndexes = [ei, ...peers.map((peer) => peer.index)].sort((a, b) => a - b);
+      const lastIndex = groupIndexes.at(-1);
+      if (ei !== lastIndex) {
+        const nextPeer = category.exercises.find((item, index) => index > ei && item.supersetGroup === group)
+          || peers[0]?.item;
+        toast.info(`↔ Superserie ${group}`, {
+          description: nextPeer?.name ? `Sigue con ${nextPeer.name} antes de descansar.` : "Completa el siguiente ejercicio del bloque.",
+        });
+        return;
       }
+    }
+
+    if (prescription?.autoRest !== false) {
+      startRestTimer(
+        prescription?.restSeconds || profile?.rest_time_seconds || 120,
+        group ? `Superserie ${group}` : exercise.name
+      );
     }
   }, [catData, profile, startRestTimer, updateExercise]);
 
@@ -404,10 +435,13 @@ export default function WorkoutForm({
                   const wasCopied = copiedExercise?.ci === ci && copiedExercise?.ei === ei;
                   const prescription = getExercisePrescription(exercise.name);
                   const exerciseRest = prescription?.restSeconds || profile?.rest_time_seconds || 120;
+                  const notes = exercise.notes || prescription?.notes || "";
+                  const supersetGroup = exercise.supersetGroup || prescription?.supersetGroup || "";
 
                   return (
-                    <div key={ei} className="wf-ex-card">
+                    <div key={ei} className={`wf-ex-card ${supersetGroup ? "wf-ex-card--superset" : ""}`}>
                       <div className="wf-ex-name-row" style={{ position: "relative" }}>
+                        {supersetGroup && <span className="wf-superset-badge">SS {supersetGroup}</span>}
                         <input
                           type="text"
                           className="wf-ex-name-input"
@@ -459,12 +493,20 @@ export default function WorkoutForm({
 
                       {wasCopied && <div className="wf-copied-banner" role="status">✨ Series copiadas automáticamente</div>}
 
+                      {(notes || supersetGroup) && (
+                        <div className="wf-coaching-note">
+                          {supersetGroup && <strong>↔ Superserie {supersetGroup}</strong>}
+                          {notes && <span>{notes}</span>}
+                        </div>
+                      )}
+
                       <ExerciseLiveContext exerciseName={exercise.name} sets={exercise.sets} />
 
-                      <div className="wf-sets-header">
+                      <div className="wf-sets-header wf-sets-header--rir">
                         <span className="header-space">Serie</span>
-                        <span className="header-weight">Peso (kg)</span>
+                        <span className="header-weight">Peso</span>
                         <span className="header-reps">Reps</span>
+                        <span className="header-rir">RIR</span>
                         <span className="header-check">✓</span>
                       </div>
 
@@ -473,7 +515,7 @@ export default function WorkoutForm({
                         return (
                           <div
                             key={set.id}
-                            className={`wf-set-row ${set.done ? "wf-set-row--done" : ""} ${warmup ? "wf-set-row--warmup" : ""}`}
+                            className={`wf-set-row wf-set-row--rir ${set.done ? "wf-set-row--done" : ""} ${warmup ? "wf-set-row--warmup" : ""}`}
                           >
                             <div className="set-number-box">
                               <span>{getSetLabel(exercise.sets, si)}</span>
@@ -496,6 +538,11 @@ export default function WorkoutForm({
                               value={set.reps}
                               onChange={(event) => updateSet(ci, ei, si, "reps", event.target.value)}
                             />
+                            <RirPicker
+                              value={set.rir}
+                              disabled={warmup}
+                              onChange={(value) => updateSet(ci, ei, si, "rir", value)}
+                            />
                             <button
                               type="button"
                               className={`wf-done-btn ${set.done ? "active wf-done-btn--active" : ""}`}
@@ -515,7 +562,7 @@ export default function WorkoutForm({
                           className={`wf-rest-btn ${restEndTime ? "is-running" : ""}`}
                           onClick={restEndTime
                             ? cancelRestTimer
-                            : () => startRestTimer(exerciseRest, exercise.name)}
+                            : () => startRestTimer(exerciseRest, supersetGroup ? `Superserie ${supersetGroup}` : exercise.name)}
                         >
                           {restEndTime
                             ? `❌ ${restLabel ? `${restLabel} · ` : ""}${formatRestTime(restRemaining)}`
