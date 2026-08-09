@@ -43,7 +43,8 @@ const CHROME_VIEWS = new Set([
   VIEWS.ROUTINES,
 ]);
 
-const PERSONAL_TYPES = new Set(["push", "pull", "legs"]);
+const isSavedRoutine = (routine) =>
+  Boolean(routine?.type && Array.isArray(routine?.categories) && routine.categories.length);
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -85,11 +86,11 @@ export default function App() {
   };
 
   const handleStartRoutine = (routine) => {
-    if (!routine || !PERSONAL_TYPES.has(routine.type)) return;
+    if (!isSavedRoutine(routine)) return;
     clearDraftWorkout();
     setRepeatWorkout(null);
     setSelectedTemplate({ ...routine, id: routine.type });
-    setSelectedDay(routine.name || routine.type);
+    setSelectedDay(routine.name || "Entrenamiento");
     setSelectedCategories((routine.categories || []).map((category) => category.name));
     setTemplateCategories(routineToTemplateCategories(routine));
     setWorkoutStartTime(Date.now());
@@ -109,12 +110,12 @@ export default function App() {
   };
 
   const handleTemplateSelected = (template) => {
-    if (PERSONAL_TYPES.has(template?.type)) {
+    if (isSavedRoutine(template)) {
       handleStartRoutine(template);
       return;
     }
 
-    setSelectedTemplate({ ...template, id: "custom", type: "custom" });
+    setSelectedTemplate({ ...template, id: "free", type: "free" });
     setTemplateCategories([]);
     setSelectedCategories([]);
     navigate(VIEWS.DAY_SELECTOR);
@@ -159,7 +160,7 @@ export default function App() {
   };
 
   const handleManageRoutines = (type = "push") => {
-    setRoutineInitialType(PERSONAL_TYPES.has(type) ? type : "push");
+    setRoutineInitialType(typeof type === "string" && type ? type : "push");
     setRoutineReturnView(view === VIEWS.TEMPLATE_SELECTOR ? VIEWS.TEMPLATE_SELECTOR : VIEWS.DASHBOARD);
     navigate(VIEWS.ROUTINES);
   };
@@ -183,7 +184,7 @@ export default function App() {
       return;
     }
 
-    if (PERSONAL_TYPES.has(selectedTemplate?.type)) {
+    if (isSavedRoutine(selectedTemplate)) {
       navigate(VIEWS.TEMPLATE_SELECTOR);
       return;
     }
