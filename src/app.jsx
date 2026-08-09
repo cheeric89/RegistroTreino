@@ -217,6 +217,7 @@ export default function App() {
             user={user}
             profile={profile}
             onStart={handleStart}
+            onStartRoutine={handleStartRoutine}
             onManageRoutines={handleManageRoutines}
             onOpenHistory={handleOpenHistory}
             onRepeatWorkout={handleRepeatWorkout}
