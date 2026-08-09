@@ -9,6 +9,7 @@ import App from "./app";
 import "./styles.css";
 import "./styles/portfolio-core.css";
 import "./styles/portfolio-dashboard.css";
+import "./styles/portfolio-smart-dashboard.css";
 import "./styles/portfolio-account.css";
 import "./styles/portfolio-workout.css";
 import "./styles/portfolio-fixes.css";
