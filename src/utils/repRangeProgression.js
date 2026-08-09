@@ -25,6 +25,8 @@ export const normalizeExercisePrescription = (exercise = {}) => {
     autoRest: exercise.autoRest !== false,
     favorite: exercise.favorite === true,
     deload: exercise.deload === true,
+    notes: typeof exercise.notes === "string" ? exercise.notes : "",
+    supersetGroup: typeof exercise.supersetGroup === "string" ? exercise.supersetGroup : "",
   };
 };
 
@@ -60,6 +62,7 @@ const completedWorkingSets = (sets = [], plannedSets = 1) =>
     .map((set) => ({
       weight: Number(set?.weight) || 0,
       reps: Number(set?.reps) || 0,
+      rir: set?.rir === "" || set?.rir == null ? null : Number(set.rir),
     }));
 
 export const getRepRangeProgress = (sets = [], prescription = null) => {
@@ -76,6 +79,10 @@ export const getRepRangeProgress = (sets = [], prescription = null) => {
   const remainingSets = Math.max(0, effectivePlannedSets - completedCount);
   const allPlannedDone = completedCount >= effectivePlannedSets;
   const reps = completed.map((set) => set.reps);
+  const rirValues = completed.map((set) => set.rir).filter((value) => Number.isFinite(value));
+  const averageRir = rirValues.length
+    ? Number((rirValues.reduce((total, value) => total + value, 0) / rirValues.length).toFixed(1))
+    : null;
   const lowestReps = reps.length ? Math.min(...reps) : 0;
   const highestReps = reps.length ? Math.max(...reps) : 0;
   const belowRange = completed.filter((set) => set.reps < repMin).length;
@@ -105,5 +112,7 @@ export const getRepRangeProgress = (sets = [], prescription = null) => {
     atTop,
     allPlannedDone,
     deload: prescription.deload === true,
+    averageRir,
+    rirSamples: rirValues.length,
   };
 };
