@@ -100,6 +100,7 @@ export default function Dashboard({
   user,
   profile,
   onStart,
+  onStartRoutine,
   onManageRoutines,
   onOpenHistory,
   onRepeatWorkout,
@@ -168,9 +169,9 @@ export default function Dashboard({
           <div className="start-workout-card__glow" />
           <div className="start-workout-card__icon" aria-hidden="true"><Dumbbell size={26} /></div>
           <div className="start-workout-card__content">
-            <span className="card-kicker">Entrenamiento de hoy</span>
+            <span className="card-kicker">Entrenamiento</span>
             <h2>Empieza una nueva sesión</h2>
-            <p>Abre tu Push, Pull o Legs personalizada y sigue progresando en los mismos ejercicios.</p>
+            <p>Abre cualquiera de tus rutinas guardadas o crea una sesión libre.</p>
           </div>
           <button type="button" className="primary-action-button" onClick={onStart}>
             <Play size={18} fill="currentColor" />
@@ -214,7 +215,9 @@ export default function Dashboard({
 
       <SmartDashboard
         userId={user?.id}
+        profile={profile}
         onStart={onStart}
+        onStartRoutine={onStartRoutine}
         onManageRoutines={onManageRoutines}
       />
 
