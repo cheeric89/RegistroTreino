@@ -17,6 +17,7 @@ import {
   getBestExerciseMarks,
   groupWorkouts,
 } from "../utils/workoutHistory";
+import SmartDashboard from "./SmartDashboard";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -210,6 +211,12 @@ export default function Dashboard({
           </div>
         </aside>
       </section>
+
+      <SmartDashboard
+        userId={user?.id}
+        onStart={onStart}
+        onManageRoutines={onManageRoutines}
+      />
 
       {dashboardData.latest && (
         <section className="continue-card">
