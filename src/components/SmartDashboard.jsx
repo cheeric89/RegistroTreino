@@ -22,6 +22,7 @@ import {
   getRoutineRecovery,
   getTodayRoutine,
 } from "../utils/dashboardAnalytics";
+import WeeklyPlanner from "./WeeklyPlanner";
 
 const targetsKey = (userId) => `treino_muscle_targets:${userId || "guest"}`;
 
@@ -53,7 +54,13 @@ const getTarget = (targets, muscle) => {
   return Number.isFinite(value) && value > 0 ? value : 10;
 };
 
-export default function SmartDashboard({ userId, onStart, onManageRoutines }) {
+export default function SmartDashboard({
+  userId,
+  profile,
+  onStart,
+  onStartRoutine,
+  onManageRoutines,
+}) {
   const { workouts } = useWorkoutContext();
   const { routines } = useRoutineContext();
   const [targets, setTargets] = useState(() => readTargets(userId));
@@ -66,7 +73,7 @@ export default function SmartDashboard({ userId, onStart, onManageRoutines }) {
     const heatmap = buildWorkoutHeatmap(workouts);
     const weekly = buildWeeklyMuscleStats(workouts);
     const recovery = buildMuscleRecovery(workouts);
-    const today = getTodayRoutine(routines, workouts);
+    const today = getTodayRoutine(routines, workouts, profile?.weekly_plan || {});
     const todayRecovery = getRoutineRecovery(today?.routine, recovery);
     const prs = buildPRDashboard(workouts);
     const prOfMonth = getPRofMonth(workouts);
@@ -82,7 +89,7 @@ export default function SmartDashboard({ userId, onStart, onManageRoutines }) {
       .sort((a, b) => b.sets - a.sets || a.muscle.localeCompare(b.muscle, "es"));
 
     return { heatmap, weekly, recovery, today, todayRecovery, prs, prOfMonth, muscleRows };
-  }, [routines, workouts]);
+  }, [profile?.weekly_plan, routines, workouts]);
 
   const updateTarget = (muscle, value) => {
     const target = Math.min(40, Math.max(1, Number(value) || 1));
@@ -101,12 +108,14 @@ export default function SmartDashboard({ userId, onStart, onManageRoutines }) {
 
   return (
     <section className="smart-dashboard" aria-label="Treino Smart Dashboard">
+      <WeeklyPlanner onStartRoutine={onStartRoutine} />
+
       {analytics.today && (
         <article className={`today-training-card today-training-card--${analytics.todayRecovery.state}`}>
           <div className="today-training-card__main">
             <div className="today-training-card__eyebrow">
               <Sparkles size={14} />
-              <span>PLAN DE HOY</span>
+              <span>{analytics.today.scheduled ? "PROGRAMADO PARA HOY" : "SUGERENCIA DE HOY"}</span>
             </div>
             <div className="today-training-card__title">
               <span aria-hidden="true">{analytics.today.routine.emoji || "💪"}</span>
@@ -125,8 +134,12 @@ export default function SmartDashboard({ userId, onStart, onManageRoutines }) {
           </div>
 
           <div className="today-training-card__actions">
-            <button type="button" className="primary-action-button" onClick={onStart}>
-              <Dumbbell size={17} /> Empezar hoy <ArrowRight size={17} />
+            <button
+              type="button"
+              className="primary-action-button"
+              onClick={() => onStartRoutine?.(analytics.today.routine)}
+            >
+              <Dumbbell size={17} /> Empezar {analytics.today.routine.name} <ArrowRight size={17} />
             </button>
             <button type="button" className="secondary-action-button" onClick={() => onManageRoutines?.(analytics.today.type)}>
               Ver {analytics.today.routine.name}
