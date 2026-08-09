@@ -10,6 +10,8 @@ import {
   saveWorkout,
 } from "../utils/storage";
 import { getPRStatus } from "../utils/progressionEngine";
+import { getExercisePrescription } from "../utils/repRangeProgression";
+import { isWarmupSet } from "../utils/smartProgression";
 import ExerciseLiveContext from "./ExerciseLiveContext";
 import "./workoutform-autocomplete.css";
 
@@ -18,6 +20,7 @@ const newSet = (set = {}) => ({
   weight: set.weight ?? "",
   reps: set.reps ?? "",
   done: false,
+  setType: set.setType || set.type || "working",
 });
 
 const initCategory = (name, preset = null) => ({
@@ -25,8 +28,11 @@ const initCategory = (name, preset = null) => ({
   expanded: true,
   exercises: preset
     ? preset.map((exercise) => ({
+        ...exercise,
         name: exercise.name || "",
-        sets: exercise.sets?.length ? exercise.sets.map(() => newSet()) : [newSet()],
+        sets: exercise.sets?.length
+          ? exercise.sets.map((set) => newSet(set))
+          : [newSet()],
       }))
     : [{ name: "Ejercicio 1", sets: [newSet()] }],
 });
@@ -75,6 +81,25 @@ const highlightMatch = (text = "", query = "") => {
 const getVisibleSets = (sets = []) =>
   sets.filter((set) => String(set?.weight ?? "").trim() || String(set?.reps ?? "").trim()).slice(0, 4);
 
+const getSetLabel = (sets = [], index = 0) => {
+  const current = sets[index];
+  const warmup = isWarmupSet(current);
+  const number = sets
+    .slice(0, index + 1)
+    .filter((set) => isWarmupSet(set) === warmup)
+    .length;
+  return warmup ? `C${number}` : String(number);
+};
+
+const stripWarmupsForHistory = (categories = []) =>
+  categories.map((category) => ({
+    ...category,
+    exercises: (category.exercises || []).map((exercise) => ({
+      ...exercise,
+      sets: (exercise.sets || []).filter((set) => !isWarmupSet(set)),
+    })),
+  }));
+
 export default function WorkoutForm({
   day,
   categories = [],
@@ -96,6 +121,7 @@ export default function WorkoutForm({
   const [newCategoryName, setNewCategoryName] = useState("");
   const [restEndTime, setRestEndTime] = useState(null);
   const [restRemaining, setRestRemaining] = useState(0);
+  const [restLabel, setRestLabel] = useState("");
 
   const buildFreshCatData = useCallback(() => {
     if (templateCategories.length) {
@@ -132,9 +158,10 @@ export default function WorkoutForm({
     const saved = localStorage.getItem("treino_rest_timer");
     if (!saved) return;
     try {
-      const { endTime } = JSON.parse(saved);
+      const { endTime, label } = JSON.parse(saved);
       if (endTime > Date.now()) {
         setRestEndTime(endTime);
+        setRestLabel(label || "");
         toast.info("⏳ Descanso recuperado");
       } else localStorage.removeItem("treino_rest_timer");
     } catch {
@@ -171,14 +198,16 @@ export default function WorkoutForm({
       if (remaining > 0) return setRestRemaining(remaining);
       setRestRemaining(0);
       setRestEndTime(null);
+      const finishedLabel = restLabel;
+      setRestLabel("");
       localStorage.removeItem("treino_rest_timer");
-      toast.success("🔥 Descanso terminado");
+      toast.success(finishedLabel ? `🔥 Descanso terminado · ${finishedLabel}` : "🔥 Descanso terminado");
       if ("vibrate" in navigator) navigator.vibrate([300, 200, 300]);
     };
     update();
     const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
-  }, [restEndTime]);
+  }, [restEndTime, restLabel]);
 
   const updateCategory = useCallback((ci, updater) => {
     setCatData((previous) => previous.map((category, index) => (index === ci ? updater(category) : category)));
@@ -196,17 +225,21 @@ export default function WorkoutForm({
     onBack?.();
   }, [onBack]);
 
-  const startRestTimer = useCallback(() => {
-    const seconds = profile?.rest_time_seconds || 120;
+  const startRestTimer = useCallback((secondsOverride = null, label = "") => {
+    const seconds = Math.max(30, Number(secondsOverride) || profile?.rest_time_seconds || 120);
     const endTime = Date.now() + seconds * 1000;
     setRestEndTime(endTime);
-    localStorage.setItem("treino_rest_timer", JSON.stringify({ endTime }));
-    toast.info(`⏳ Descanso iniciado: ${formatRestTime(seconds)}`);
+    setRestLabel(label);
+    localStorage.setItem("treino_rest_timer", JSON.stringify({ endTime, label }));
+    toast.info(`⏳ Descanso iniciado: ${formatRestTime(seconds)}`, {
+      description: label || undefined,
+    });
   }, [profile]);
 
   const cancelRestTimer = useCallback(() => {
     setRestEndTime(null);
     setRestRemaining(0);
+    setRestLabel("");
     localStorage.removeItem("treino_rest_timer");
     toast.info("❌ Descanso cancelado");
   }, []);
@@ -258,7 +291,7 @@ export default function WorkoutForm({
     updateExercise(ci, ei, (exercise) => ({
       ...exercise,
       name: suggestion.name,
-      sets: sourceSets.map((set) => newSet(set)),
+      sets: sourceSets.map((set) => newSet({ ...set, setType: "working" })),
     }));
     setActiveSuggestions({ ci: null, ei: null, list: [] });
     setCopiedExercise({ ci, ei });
@@ -267,7 +300,7 @@ export default function WorkoutForm({
   }, [updateExercise]);
 
   const addSet = useCallback((ci, ei) => {
-    updateExercise(ci, ei, (exercise) => ({ ...exercise, sets: [...exercise.sets, newSet()] }));
+    updateExercise(ci, ei, (exercise) => ({ ...exercise, sets: [...exercise.sets, newSet({ setType: "working" })] }));
   }, [updateExercise]);
 
   const updateSet = useCallback((ci, ei, si, field, value) => {
@@ -282,11 +315,28 @@ export default function WorkoutForm({
   }, [updateExercise]);
 
   const toggleDone = useCallback((ci, ei, si) => {
-    updateExercise(ci, ei, (exercise) => ({
-      ...exercise,
-      sets: exercise.sets.map((set, index) => (index === si ? { ...set, done: !set.done } : set)),
+    const exercise = catData?.[ci]?.exercises?.[ei];
+    const set = exercise?.sets?.[si];
+    if (!exercise || !set) return;
+
+    const willComplete = !set.done;
+    updateExercise(ci, ei, (currentExercise) => ({
+      ...currentExercise,
+      sets: currentExercise.sets.map((currentSet, index) =>
+        index === si ? { ...currentSet, done: !currentSet.done } : currentSet
+      ),
     }));
-  }, [updateExercise]);
+
+    if (willComplete && !isWarmupSet(set)) {
+      const prescription = getExercisePrescription(exercise.name);
+      if (prescription?.autoRest !== false) {
+        startRestTimer(
+          prescription?.restSeconds || profile?.rest_time_seconds || 120,
+          exercise.name
+        );
+      }
+    }
+  }, [catData, profile, startRestTimer, updateExercise]);
 
   const handleSave = useCallback((event) => {
     event?.preventDefault();
@@ -296,22 +346,24 @@ export default function WorkoutForm({
     let prCount = 0;
 
     catData.forEach((category) => category.exercises.forEach((exercise) => {
-      if (exercise.name?.trim() && getPRStatus(exercise.name, exercise.sets || []).isPR) prCount += 1;
-      (exercise.sets || []).forEach((set) => {
+      const workingSets = (exercise.sets || []).filter((set) => !isWarmupSet(set));
+      if (exercise.name?.trim() && getPRStatus(exercise.name, workingSets).isPR) prCount += 1;
+      workingSets.forEach((set) => {
         const weight = Number(set.weight);
         const reps = Number(set.reps);
         if (Number.isFinite(weight) && Number.isFinite(reps)) totalVolume += weight * reps;
       });
     }));
 
+    const historyCategories = stripWarmupsForHistory(catData);
     const workout = {
       day,
       date: new Date().toLocaleDateString("es-CL"),
       timestamp: Date.now(),
       duration: elapsedTime,
       volume: totalVolume,
-      exercises: catData,
-      categories: catData.map((category) => category.name),
+      exercises: historyCategories,
+      categories: historyCategories.map((category) => category.name),
     };
     if (saveWorkout(workout)) clearDraftWorkout();
     setTimeout(() => {
@@ -350,6 +402,9 @@ export default function WorkoutForm({
               <div className="wf-exercises">
                 {category.exercises.map((exercise, ei) => {
                   const wasCopied = copiedExercise?.ci === ci && copiedExercise?.ei === ei;
+                  const prescription = getExercisePrescription(exercise.name);
+                  const exerciseRest = prescription?.restSeconds || profile?.rest_time_seconds || 120;
+
                   return (
                     <div key={ei} className="wf-ex-card">
                       <div className="wf-ex-name-row" style={{ position: "relative" }}>
@@ -407,49 +462,66 @@ export default function WorkoutForm({
                       <ExerciseLiveContext exerciseName={exercise.name} sets={exercise.sets} />
 
                       <div className="wf-sets-header">
-                        <span className="header-space" />
+                        <span className="header-space">Serie</span>
                         <span className="header-weight">Peso (kg)</span>
                         <span className="header-reps">Reps</span>
                         <span className="header-check">✓</span>
                       </div>
 
-                      {exercise.sets.map((set, si) => (
-                        <div key={set.id} className={`wf-set-row ${set.done ? "wf-set-row--done" : ""}`}>
-                          <div className="set-number-box"><span>{si + 1}</span></div>
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            className={`wf-set-input ${wasCopied ? "wf-set-input--copied" : ""}`}
-                            placeholder="0"
-                            value={formatWeightInput(set.weight)}
-                            onChange={(event) => updateSet(ci, ei, si, "weight", event.target.value)}
-                            aria-label={`Peso de la serie ${si + 1}`}
-                          />
-                          <input
-                            type="number"
-                            inputMode="numeric"
-                            className={`wf-set-input ${wasCopied ? "wf-set-input--copied" : ""}`}
-                            placeholder="0"
-                            value={set.reps}
-                            onChange={(event) => updateSet(ci, ei, si, "reps", event.target.value)}
-                          />
-                          <button
-                            type="button"
-                            className={`wf-done-btn ${set.done ? "active wf-done-btn--active" : ""}`}
-                            onClick={() => toggleDone(ci, ei, si)}
-                            aria-label={`Marcar serie ${si + 1}`}
+                      {exercise.sets.map((set, si) => {
+                        const warmup = isWarmupSet(set);
+                        return (
+                          <div
+                            key={set.id}
+                            className={`wf-set-row ${set.done ? "wf-set-row--done" : ""} ${warmup ? "wf-set-row--warmup" : ""}`}
                           >
-                            <Check size={16} />
-                          </button>
-                        </div>
-                      ))}
+                            <div className="set-number-box">
+                              <span>{getSetLabel(exercise.sets, si)}</span>
+                              {warmup && <small>calent.</small>}
+                            </div>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              className={`wf-set-input ${wasCopied ? "wf-set-input--copied" : ""}`}
+                              placeholder="0"
+                              value={formatWeightInput(set.weight)}
+                              onChange={(event) => updateSet(ci, ei, si, "weight", event.target.value)}
+                              aria-label={`Peso de la serie ${si + 1}`}
+                            />
+                            <input
+                              type="number"
+                              inputMode="numeric"
+                              className={`wf-set-input ${wasCopied ? "wf-set-input--copied" : ""}`}
+                              placeholder="0"
+                              value={set.reps}
+                              onChange={(event) => updateSet(ci, ei, si, "reps", event.target.value)}
+                            />
+                            <button
+                              type="button"
+                              className={`wf-done-btn ${set.done ? "active wf-done-btn--active" : ""}`}
+                              onClick={() => toggleDone(ci, ei, si)}
+                              aria-label={`Marcar serie ${si + 1}`}
+                            >
+                              <Check size={16} />
+                            </button>
+                          </div>
+                        );
+                      })}
 
-                      <button type="button" className="wf-add-set-btn" onClick={() => addSet(ci, ei)}>+ Serie</button>
-                      <button type="button" className="wf-rest-btn" onClick={restEndTime ? cancelRestTimer : startRestTimer}>
-                        {restEndTime
-                          ? `❌ Cancelar (${formatRestTime(restRemaining)})`
-                          : `⏱ Descansar ${formatRestTime(profile?.rest_time_seconds || 120)}`}
-                      </button>
+                      <div className="wf-exercise-actions">
+                        <button type="button" className="wf-add-set-btn" onClick={() => addSet(ci, ei)}>+ Serie efectiva</button>
+                        <button
+                          type="button"
+                          className={`wf-rest-btn ${restEndTime ? "is-running" : ""}`}
+                          onClick={restEndTime
+                            ? cancelRestTimer
+                            : () => startRestTimer(exerciseRest, exercise.name)}
+                        >
+                          {restEndTime
+                            ? `❌ ${restLabel ? `${restLabel} · ` : ""}${formatRestTime(restRemaining)}`
+                            : `⏱ Descansar ${formatRestTime(exerciseRest)}${prescription?.autoRest !== false ? " · automático" : ""}`}
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
