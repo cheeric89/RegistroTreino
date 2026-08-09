@@ -16,19 +16,19 @@ export const estimateOneRepMax = (weight, reps) => {
 };
 
 const validWorkingSets = (sets = []) => {
-  const candidates = sets.filter(
+  const completed = sets.filter(
+    (set) => !isWarmupSet(set) && set?.done === true &&
+      ((Number(set?.weight) || 0) > 0 || (Number(set?.reps) || 0) > 0)
+  );
+  if (completed.length) return completed;
+
+  const legacy = sets.filter(
     (set) => !isWarmupSet(set) && set?.done !== false &&
       ((Number(set?.weight) || 0) > 0 || (Number(set?.reps) || 0) > 0)
   );
+  if (legacy.length) return legacy;
 
-  // Historial antiguo puede no haber guardado `done`. Si todos quedaron en false,
-  // usamos los sets con datos para no perder retrocompatibilidad.
-  if (candidates.length) return candidates;
-
-  return sets.filter(
-    (set) => !isWarmupSet(set) &&
-      ((Number(set?.weight) || 0) > 0 || (Number(set?.reps) || 0) > 0)
-  );
+  return [];
 };
 
 const summarizeSets = (sets = []) => {
@@ -99,20 +99,22 @@ export const getExerciseSessions = (exerciseName, workouts = getAllWorkouts()) =
             return;
           }
 
-          aggregate.workingSets.push(...summary.workingSets);
-          aggregate.setCount += summary.setCount;
-          aggregate.maxWeight = Math.max(aggregate.maxWeight, summary.maxWeight);
-          aggregate.maxReps = Math.max(aggregate.maxReps, summary.maxReps);
-          aggregate.volume = roundToHalf(aggregate.volume + summary.volume);
-          aggregate.estimated1RM = Math.max(aggregate.estimated1RM, summary.estimated1RM);
-          if (summary.maxWeight > aggregate.maxWeight) {
+          const previousMaxWeight = aggregate.maxWeight;
+          if (summary.maxWeight > previousMaxWeight) {
             aggregate.bestRepsAtMaxWeight = summary.bestRepsAtMaxWeight;
-          } else if (summary.maxWeight === aggregate.maxWeight) {
+          } else if (summary.maxWeight === previousMaxWeight) {
             aggregate.bestRepsAtMaxWeight = Math.max(
               aggregate.bestRepsAtMaxWeight,
               summary.bestRepsAtMaxWeight
             );
           }
+
+          aggregate.workingSets.push(...summary.workingSets);
+          aggregate.setCount += summary.setCount;
+          aggregate.maxWeight = Math.max(previousMaxWeight, summary.maxWeight);
+          aggregate.maxReps = Math.max(aggregate.maxReps, summary.maxReps);
+          aggregate.volume = roundToHalf(aggregate.volume + summary.volume);
+          aggregate.estimated1RM = Math.max(aggregate.estimated1RM, summary.estimated1RM);
         });
       });
 
@@ -259,7 +261,7 @@ export const getSmartProgressionPlan = (exerciseName, prescription = null) => {
     return {
       state: "deload",
       title: "Descarga activa",
-      message: `Esta sesión prioriza recuperación: menos volumen y cerca de 90% de tu carga habitual. Mantén la técnica limpia y evita perseguir PRs.`,
+      message: "Esta sesión prioriza recuperación: menos volumen y cerca de 90% de tu carga habitual. Mantén la técnica limpia y evita perseguir PRs.",
       weight: reduced,
       reps: repMin,
       increment: learned.increment,
