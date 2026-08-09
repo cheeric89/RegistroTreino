@@ -39,6 +39,10 @@ const MUSCLE_ALIASES = {
   pantorrillas: "Gemelos",
 };
 
+const DAY_KEYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
+export const getTodayPlanKey = () => DAY_KEYS[new Date().getDay()] || "monday";
+
 export const canonicalMuscleName = (name = "") => {
   const normalized = normalizeText(name);
   return MUSCLE_ALIASES[normalized] || String(name || "Otros").trim() || "Otros";
@@ -171,12 +175,20 @@ export const estimateRoutineMinutes = (routine) => {
 
 const NEXT_GROUP = { push: "pull", pull: "legs", legs: "push" };
 
-export const getTodayRoutine = (routines = [], workouts = []) => {
+export const getTodayRoutine = (routines = [], workouts = [], weeklyPlan = {}) => {
+  const plannedType = weeklyPlan && typeof weeklyPlan === "object"
+    ? weeklyPlan[getTodayPlanKey()]
+    : "";
+  const plannedRoutine = plannedType
+    ? routines.find((item) => item.type === plannedType)
+    : null;
+
   const latest = [...workouts]
     .sort((a, b) => (Number(b?.timestamp) || 0) - (Number(a?.timestamp) || 0))[0] || null;
   const latestGroup = latest ? getWorkoutGroup(latest) : null;
   const suggestedType = NEXT_GROUP[latestGroup] || "push";
-  const routine = routines.find((item) => item.type === suggestedType) || routines[0] || null;
+  const fallbackRoutine = routines.find((item) => item.type === suggestedType) || routines[0] || null;
+  const routine = plannedRoutine || fallbackRoutine;
 
   if (!routine) return null;
 
@@ -196,7 +208,8 @@ export const getTodayRoutine = (routines = [], workouts = []) => {
     estimatedMinutes: estimateRoutineMinutes(routine),
     progressionOpportunities,
     plateauCount,
-    basedOn: latestGroup,
+    basedOn: plannedRoutine ? "weekly_plan" : latestGroup,
+    scheduled: Boolean(plannedRoutine),
   };
 };
 

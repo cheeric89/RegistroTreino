@@ -33,9 +33,28 @@ import {
   isRoutineDeload,
   setRoutineDeload,
 } from "../../utils/routines";
+import TreinoSelect from "../ui/TreinoSelect";
 
 const CORE_TYPES = ["push", "pull", "legs"];
 const isCoreType = (type) => CORE_TYPES.includes(type);
+
+const REST_OPTIONS = [45, 60, 75, 90, 120, 150, 180, 210, 240].map((seconds) => {
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return {
+    value: seconds,
+    label: `${minutes}:${String(remainder).padStart(2, "0")}`,
+    description: seconds <= 90 ? "Accesorios / superseries" : seconds >= 180 ? "Compuestos pesados" : "Descanso estándar",
+  };
+});
+
+const SUPERSET_OPTIONS = [
+  { value: "", label: "Sin superserie", description: "Ejercicio individual" },
+  { value: "A", label: "Superserie A", description: "Combínalo con otro ejercicio A" },
+  { value: "B", label: "Superserie B", description: "Combínalo con otro ejercicio B" },
+  { value: "C", label: "Superserie C", description: "Combínalo con otro ejercicio C" },
+  { value: "D", label: "Superserie D", description: "Combínalo con otro ejercicio D" },
+];
 
 const cloneRoutine = (routine) => ({
   ...(routine || {}),
@@ -84,6 +103,8 @@ const sanitizeRoutine = (draft, activeType) => ({
           ...exercise,
           ...normalizeExercisePrescription(exercise),
           name: exercise.name.trim(),
+          notes: exercise.notes?.trim() || "",
+          supersetGroup: exercise.supersetGroup || "",
         })),
     }))
     .filter((category) => category.exercises.length > 0),
@@ -166,6 +187,8 @@ export default function RoutinesManager({ initialType = "push", onBack, onStartR
           autoRest: true,
           favorite: false,
           deload: deloadActive,
+          notes: "",
+          supersetGroup: "",
         },
       ],
     }));
@@ -285,6 +308,7 @@ export default function RoutinesManager({ initialType = "push", onBack, onStartR
   const exerciseCount = countRoutineExercises(draft);
   const setCount = countRoutineSets(draft);
   const customRoutine = !isCoreType(activeType);
+  const visibleRoutines = routines.length ? routines : CORE_TYPES.map((type) => getRoutine(type)).filter(Boolean);
 
   return (
     <div className="page-shell routines-page">
@@ -294,9 +318,9 @@ export default function RoutinesManager({ initialType = "push", onBack, onStartR
           <span>Volver</span>
         </button>
         <div>
-          <span className="page-eyebrow">Tu sistema de entrenamiento</span>
+          <span className="page-eyebrow">Treino 1.3 · Coaching & Planning</span>
           <h1>Mis rutinas</h1>
-          <p>Usa PPL, Upper/Lower, Full Body, Arnold o crea tu propia estructura. Cada ejercicio conserva su progresión, descanso y calentamiento.</p>
+          <p>Configura progresión, descanso, calentamiento, notas y superseries. Todo queda listo para aparecer automáticamente durante tu sesión.</p>
         </div>
       </header>
 
@@ -307,7 +331,7 @@ export default function RoutinesManager({ initialType = "push", onBack, onStartR
           <span>
             {deloadActive
               ? "Menos volumen y cargas sugeridas más conservadoras para recuperar margen sin perder tu estructura."
-              : "Treino aprende de tus saltos de peso, detecta estancamientos y te propone una meta concreta para cada ejercicio."}
+              : "Treino usa historial, rangos y ahora también RIR para ajustar el objetivo de cada ejercicio."}
           </span>
         </div>
         <button
@@ -323,7 +347,7 @@ export default function RoutinesManager({ initialType = "push", onBack, onStartR
 
       <div className="routines-universal-toolbar">
         <div className="routines-tabs" role="tablist" aria-label="Rutinas">
-          {(routines.length ? routines : CORE_TYPES.map((type) => getRoutine(type)).filter(Boolean)).map((routine) => (
+          {visibleRoutines.map((routine) => (
             <button
               key={routine.type}
               type="button"
@@ -387,7 +411,7 @@ export default function RoutinesManager({ initialType = "push", onBack, onStartR
                   const smartPlan = exercise.name?.trim() ? getSmartProgressionPlan(exercise.name, prescription) : null;
 
                   return (
-                    <article key={`routine-exercise-${categoryIndex}-${exerciseIndex}`} className="routine-exercise-row">
+                    <article key={`routine-exercise-${categoryIndex}-${exerciseIndex}`} className={`routine-exercise-row ${exercise.supersetGroup ? "has-superset" : ""}`}>
                       <div className="routine-exercise-row__order">
                         <button type="button" disabled={exerciseIndex === 0} onClick={() => moveExercise(categoryIndex, exerciseIndex, -1)} aria-label="Subir ejercicio"><ArrowUp size={14} /></button>
                         <button type="button" disabled={exerciseIndex === category.exercises.length - 1} onClick={() => moveExercise(categoryIndex, exerciseIndex, 1)} aria-label="Bajar ejercicio"><ArrowDown size={14} /></button>
@@ -395,6 +419,7 @@ export default function RoutinesManager({ initialType = "push", onBack, onStartR
 
                       <div className="routine-exercise-row__main">
                         <div className="routine-exercise-name-line">
+                          {exercise.supersetGroup && <span className="routine-superset-badge">SS {exercise.supersetGroup}</span>}
                           <input
                             value={exercise.name}
                             onChange={(event) => updateExercise(categoryIndex, exerciseIndex, { name: event.target.value })}
@@ -410,11 +435,13 @@ export default function RoutinesManager({ initialType = "push", onBack, onStartR
                             <Star size={15} fill={exercise.favorite ? "currentColor" : "none"} />
                           </button>
                         </div>
+
                         <div className="routine-exercise-row__progress">
                           <span className="routine-range-pill"><Target size={13} /> {repRange.repMin}–{repRange.repMax} reps</span>
                           <span>⏱ {formatRest(prescription.restSeconds)}</span>
                           {prescription.warmupSets > 0 && <span>🔥 {prescription.warmupSets} calent.</span>}
                           {exercise.favorite && <span className="routine-favorite-pill">★ Favorito</span>}
+                          {exercise.supersetGroup && <span className="routine-superset-pill">↔ Superserie {exercise.supersetGroup}</span>}
                           {progress ? (
                             <>
                               <span><Trophy size={13} /> PR {progress.bestWeight || 0} kg</span>
@@ -424,12 +451,36 @@ export default function RoutinesManager({ initialType = "push", onBack, onStartR
                             <span><Dumbbell size={13} /> Sin historial todavía</span>
                           )}
                         </div>
+
                         {smartPlan && (
                           <div className={`routine-smart-plan routine-smart-plan--${smartPlan.state}`}>
                             <strong>{smartPlan.title}</strong>
                             <span>{smartPlan.message}</span>
                           </div>
                         )}
+
+                        <div className="routine-coaching-controls">
+                          <label className="routine-note-control">
+                            <span>Nota para tu próxima sesión</span>
+                            <textarea
+                              rows="2"
+                              maxLength="180"
+                              value={exercise.notes || ""}
+                              onChange={(event) => updateExercise(categoryIndex, exerciseIndex, { notes: event.target.value })}
+                              placeholder="Ej: banco 30°, asiento 4, agarre neutro…"
+                            />
+                          </label>
+                          <label className="routine-superset-control">
+                            <span>Superserie</span>
+                            <TreinoSelect
+                              compact
+                              value={exercise.supersetGroup || ""}
+                              options={SUPERSET_OPTIONS}
+                              onChange={(value) => updateExercise(categoryIndex, exerciseIndex, { supersetGroup: value })}
+                              ariaLabel={`Superserie de ${exercise.name || "ejercicio"}`}
+                            />
+                          </label>
+                        </div>
                       </div>
 
                       <div className="routine-prescription-controls">
@@ -447,9 +498,13 @@ export default function RoutinesManager({ initialType = "push", onBack, onStartR
                         </label>
                         <label className="routine-rest-control">
                           <span>Descanso</span>
-                          <select value={exercise.restSeconds ?? 120} onChange={(event) => updateExercise(categoryIndex, exerciseIndex, { restSeconds: Number(event.target.value) })}>
-                            <option value="45">0:45</option><option value="60">1:00</option><option value="75">1:15</option><option value="90">1:30</option><option value="120">2:00</option><option value="150">2:30</option><option value="180">3:00</option><option value="210">3:30</option><option value="240">4:00</option>
-                          </select>
+                          <TreinoSelect
+                            compact
+                            value={exercise.restSeconds ?? 120}
+                            options={REST_OPTIONS}
+                            onChange={(value) => updateExercise(categoryIndex, exerciseIndex, { restSeconds: Number(value) })}
+                            ariaLabel={`Descanso de ${exercise.name || "ejercicio"}`}
+                          />
                         </label>
                         <label className="routine-warmup-control">
                           <span>Calent.</span>

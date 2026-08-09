@@ -35,6 +35,7 @@ const summarizeSets = (sets = []) => {
   const working = validWorkingSets(sets).map((set) => ({
     weight: Number(set?.weight) || 0,
     reps: Number(set?.reps) || 0,
+    rir: set?.rir === "" || set?.rir == null ? null : clamp(set.rir, 0, 4),
   }));
 
   if (!working.length) {
@@ -46,6 +47,8 @@ const summarizeSets = (sets = []) => {
       maxReps: 0,
       volume: 0,
       estimated1RM: 0,
+      averageRir: null,
+      rirSamples: 0,
     };
   }
 
@@ -60,6 +63,10 @@ const summarizeSets = (sets = []) => {
     ...working.map((set) => estimateOneRepMax(set.weight, set.reps)),
     0
   );
+  const rirValues = working.map((set) => set.rir).filter((value) => Number.isFinite(value));
+  const averageRir = rirValues.length
+    ? Number((rirValues.reduce((total, value) => total + value, 0) / rirValues.length).toFixed(1))
+    : null;
 
   return {
     workingSets: working,
@@ -69,6 +76,8 @@ const summarizeSets = (sets = []) => {
     maxReps,
     volume: roundToHalf(volume),
     estimated1RM,
+    averageRir,
+    rirSamples: rirValues.length,
   };
 };
 
@@ -109,12 +118,21 @@ export const getExerciseSessions = (exerciseName, workouts = getAllWorkouts()) =
             );
           }
 
+          const combinedRir = [
+            ...aggregate.workingSets.map((set) => set.rir),
+            ...summary.workingSets.map((set) => set.rir),
+          ].filter((value) => Number.isFinite(value));
+
           aggregate.workingSets.push(...summary.workingSets);
           aggregate.setCount += summary.setCount;
           aggregate.maxWeight = Math.max(previousMaxWeight, summary.maxWeight);
           aggregate.maxReps = Math.max(aggregate.maxReps, summary.maxReps);
           aggregate.volume = roundToHalf(aggregate.volume + summary.volume);
           aggregate.estimated1RM = Math.max(aggregate.estimated1RM, summary.estimated1RM);
+          aggregate.rirSamples = combinedRir.length;
+          aggregate.averageRir = combinedRir.length
+            ? Number((combinedRir.reduce((total, value) => total + value, 0) / combinedRir.length).toFixed(1))
+            : null;
         });
       });
 
@@ -214,6 +232,9 @@ export const getSessionComparison = (exerciseName, currentSets = []) => {
       reps: delta(current.bestRepsAtMaxWeight, previous.bestRepsAtMaxWeight),
       volume: delta(current.volume, previous.volume),
       estimated1RM: delta(current.estimated1RM, previous.estimated1RM),
+      rir: current.averageRir != null && previous.averageRir != null
+        ? delta(current.averageRir, previous.averageRir)
+        : null,
     } : null,
     beatsBest: Boolean(best && current.estimated1RM > best.estimated1RM),
   };
@@ -222,6 +243,13 @@ export const getSessionComparison = (exerciseName, currentSets = []) => {
 const roundRecommendedWeight = (weight, increment = 0.5) => {
   const step = Math.max(0.5, Number(increment) || 0.5);
   return Number((Math.round((Number(weight) || 0) / step) * step).toFixed(1));
+};
+
+const effortLabel = (averageRir) => {
+  if (averageRir == null) return null;
+  if (averageRir <= 0.5) return "al límite";
+  if (averageRir <= 2) return "exigente pero controlado";
+  return "con margen";
 };
 
 export const getSmartProgressionPlan = (exerciseName, prescription = null) => {
@@ -238,11 +266,12 @@ export const getSmartProgressionPlan = (exerciseName, prescription = null) => {
     return {
       state: "first_session",
       title: "Crea tu primera referencia",
-      message: `Busca ${plannedSets} ${plannedSets === 1 ? "serie" : "series"} de ${repMin}–${repMax} reps con una carga que controles bien.`,
+      message: `Busca ${plannedSets} ${plannedSets === 1 ? "serie" : "series"} de ${repMin}–${repMax} reps con una carga que controles bien. Si puedes, registra también tu RIR.`,
       weight: 0,
       reps: repMin,
       increment: null,
       plateau,
+      averageRir: null,
     };
   }
 
@@ -253,6 +282,8 @@ export const getSmartProgressionPlan = (exerciseName, prescription = null) => {
   const allAtTop = enoughSets && latestSets.every((set) => set.reps >= repMax);
   const anyBelow = latestSets.some((set) => set.reps > 0 && set.reps < repMin);
   const bestReps = Number(latest.bestRepsAtMaxWeight) || 0;
+  const averageRir = latest.averageRir;
+  const effort = effortLabel(averageRir);
 
   if (prescription.deload) {
     const reduced = currentWeight > 0
@@ -267,6 +298,21 @@ export const getSmartProgressionPlan = (exerciseName, prescription = null) => {
       increment: learned.increment,
       incrementSource: learned.source,
       plateau,
+      averageRir,
+    };
+  }
+
+  if (allAtTop && currentWeight > 0 && averageRir != null && averageRir <= 0.5) {
+    return {
+      state: "consolidate",
+      title: `Consolida ${currentWeight.toLocaleString("es-CL")} kg`,
+      message: `Llegaste al tope del rango, pero fue ${effort}. Repite la carga e intenta terminar cerca de RIR 1 antes de subir peso.`,
+      weight: currentWeight,
+      reps: repMax,
+      increment: learned.increment,
+      incrementSource: learned.source,
+      plateau,
+      averageRir,
     };
   }
 
@@ -275,12 +321,15 @@ export const getSmartProgressionPlan = (exerciseName, prescription = null) => {
     return {
       state: "increase_weight",
       title: `Prueba ${nextWeight.toLocaleString("es-CL")} kg`,
-      message: `Ya dominaste ${currentWeight.toLocaleString("es-CL")} kg en el tope del rango. Sube ${learned.increment.toLocaleString("es-CL")} kg y vuelve cerca de ${repMin} reps.`,
+      message: averageRir == null
+        ? `Ya dominaste ${currentWeight.toLocaleString("es-CL")} kg en el tope del rango. Sube ${learned.increment.toLocaleString("es-CL")} kg y vuelve cerca de ${repMin} reps.`
+        : `Completaste el rango ${effort} (RIR medio ${averageRir}). Sube ${learned.increment.toLocaleString("es-CL")} kg y vuelve cerca de ${repMin} reps.`,
       weight: nextWeight,
       reps: repMin,
       increment: learned.increment,
       incrementSource: learned.source,
       plateau,
+      averageRir,
     };
   }
 
@@ -288,12 +337,13 @@ export const getSmartProgressionPlan = (exerciseName, prescription = null) => {
     return {
       state: "recover_range",
       title: `Mantén ${currentWeight.toLocaleString("es-CL")} kg`,
-      message: `Primero recupera al menos ${repMin} reps en todas las series antes de aumentar carga.`,
+      message: `Primero recupera al menos ${repMin} reps en todas las series antes de aumentar carga.${averageRir === 0 ? " Además, la última sesión quedó al límite." : ""}`,
       weight: currentWeight,
       reps: repMin,
       increment: learned.increment,
       incrementSource: learned.source,
       plateau,
+      averageRir,
     };
   }
 
@@ -301,23 +351,44 @@ export const getSmartProgressionPlan = (exerciseName, prescription = null) => {
     return {
       state: "plateau",
       title: "Estancamiento detectado",
-      message: `Llevas varias sesiones sin una mejora clara. Mantén ${currentWeight.toLocaleString("es-CL")} kg y busca +1 rep; si vuelve a estancarse, una descarga puede ayudarte a recuperar margen.`,
+      message: `Llevas varias sesiones sin una mejora clara. Mantén ${currentWeight.toLocaleString("es-CL")} kg y busca +1 rep${averageRir != null ? ` con mejor margen que RIR ${averageRir}` : ""}; si vuelve a estancarse, una descarga puede ayudarte.`,
       weight: currentWeight,
       reps: Math.min(repMax, Math.max(repMin, bestReps + 1)),
       increment: learned.increment,
       incrementSource: learned.source,
       plateau,
+      averageRir,
+    };
+  }
+
+  const repStep = averageRir != null && averageRir >= 3 ? 2 : 1;
+  const nextReps = Math.min(repMax, Math.max(repMin, bestReps + repStep));
+
+  if (averageRir != null && averageRir <= 0.5 && bestReps >= repMin) {
+    return {
+      state: "improve_effort",
+      title: `Repite ${currentWeight.toLocaleString("es-CL")} kg`,
+      message: `La última sesión fue al límite (RIR ${averageRir}). Mantén ${bestReps} reps y busca terminar con un poco más de margen antes de forzar la progresión.`,
+      weight: currentWeight,
+      reps: bestReps,
+      increment: learned.increment,
+      incrementSource: learned.source,
+      plateau,
+      averageRir,
     };
   }
 
   return {
     state: "add_reps",
     title: `Hoy: ${currentWeight.toLocaleString("es-CL")} kg`,
-    message: `Mantén la carga y busca ${Math.min(repMax, Math.max(repMin, bestReps + 1))} reps en tu mejor serie. Cuando todas lleguen a ${repMax}, Treino te propondrá subir peso.`,
+    message: averageRir != null
+      ? `Tu RIR medio fue ${averageRir} (${effort}). Mantén la carga y busca ${nextReps} reps en tu mejor serie. Cuando todas lleguen a ${repMax}, Treino evaluará peso + esfuerzo.`
+      : `Mantén la carga y busca ${nextReps} reps en tu mejor serie. Cuando todas lleguen a ${repMax}, Treino te propondrá subir peso.`,
     weight: currentWeight,
-    reps: Math.min(repMax, Math.max(repMin, bestReps + 1)),
+    reps: nextReps,
     increment: learned.increment,
     incrementSource: learned.source,
     plateau,
+    averageRir,
   };
 };
