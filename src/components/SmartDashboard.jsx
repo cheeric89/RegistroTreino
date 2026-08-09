@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useRoutineContext } from "../contexts/RoutineContext";
 import { useWorkoutContext } from "../contexts/WorkoutContext";
+import { useProfile } from "../hooks/useProfile";
 import {
   buildMuscleRecovery,
   buildPRDashboard,
@@ -56,13 +57,12 @@ const getTarget = (targets, muscle) => {
 
 export default function SmartDashboard({
   userId,
-  profile,
-  onStart,
   onStartRoutine,
   onManageRoutines,
 }) {
   const { workouts } = useWorkoutContext();
   const { routines } = useRoutineContext();
+  const { profile, saving: profileSaving, saveProfile } = useProfile();
   const [targets, setTargets] = useState(() => readTargets(userId));
 
   useEffect(() => {
@@ -108,7 +108,12 @@ export default function SmartDashboard({
 
   return (
     <section className="smart-dashboard" aria-label="Treino Smart Dashboard">
-      <WeeklyPlanner onStartRoutine={onStartRoutine} />
+      <WeeklyPlanner
+        profile={profile}
+        saving={profileSaving}
+        saveProfile={saveProfile}
+        onStartRoutine={onStartRoutine}
+      />
 
       {analytics.today && (
         <article className={`today-training-card today-training-card--${analytics.todayRecovery.state}`}>
