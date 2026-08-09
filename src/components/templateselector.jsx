@@ -3,8 +3,7 @@ import { useRoutineContext } from "../contexts/RoutineContext";
 import { countRoutineExercises, countRoutineSets } from "../utils/routines";
 
 export default function TemplateSelector({ onSelect, onBack, onManageRoutines }) {
-  const { routines, getRoutine, syncing } = useRoutineContext();
-  const personalized = ["push", "pull", "legs"].map((type) => getRoutine(type));
+  const { routines, syncing } = useRoutineContext();
 
   return (
     <div className="screen flow-screen">
@@ -19,11 +18,11 @@ export default function TemplateSelector({ onSelect, onBack, onManageRoutines })
       </div>
 
       <p className="screen-subtitle">
-        Tus rutinas guardadas ya traen tus ejercicios y series. Treino añadirá tus marcas y metas al comenzar.
+        Elige cualquiera de tus rutinas guardadas. Treino cargará ejercicios, calentamiento, descansos y objetivos de progresión.
       </p>
 
       <div className="personal-routine-launch-list">
-        {personalized.map((routine) => (
+        {routines.map((routine) => (
           <article key={routine.type} className={`personal-routine-launch personal-routine-launch--${routine.type}`}>
             <button type="button" className="personal-routine-launch__main" onClick={() => onSelect(routine)}>
               <span className="template-card__icon" aria-hidden="true">{routine.emoji || "💪"}</span>
@@ -37,8 +36,7 @@ export default function TemplateSelector({ onSelect, onBack, onManageRoutines })
               <ChevronRight size={18} className="day-arrow" />
             </button>
             <button type="button" className="personal-routine-launch__edit" onClick={() => onManageRoutines?.(routine.type)}>
-              <Pencil size={15} />
-              Editar
+              <Pencil size={15} /> Editar
             </button>
           </article>
         ))}
@@ -49,19 +47,18 @@ export default function TemplateSelector({ onSelect, onBack, onManageRoutines })
       <button
         type="button"
         className="day-card template-card template-card--free"
-        onClick={() => onSelect({ id: "custom", type: "custom", name: "Entrenamiento libre", categories: null })}
+        onClick={() => onSelect({ id: "free", type: "free", name: "Entrenamiento libre", categories: null })}
       >
         <span className="template-card__icon" aria-hidden="true">⚙️</span>
         <span className="template-card__copy">
           <span className="day-label">Entrenamiento libre</span>
-          <span className="template-card__description">Elige músculos y ejercicios para una sesión distinta.</span>
+          <span className="template-card__description">Elige músculos y ejercicios para una sesión que no quieres guardar como rutina.</span>
         </span>
         <ChevronRight size={17} className="day-arrow" />
       </button>
 
       <button type="button" className="manage-routines-link" onClick={() => onManageRoutines?.()}>
-        <Settings2 size={16} />
-        Gestionar mis rutinas
+        <Settings2 size={16} /> Gestionar mis rutinas
         {syncing && <small>Sincronizando…</small>}
       </button>
     </div>

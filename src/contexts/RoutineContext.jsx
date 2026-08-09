@@ -2,12 +2,18 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { useAuth } from "./AuthContext";
 import { useRoutines } from "../hooks/useRoutines";
 import { getDefaultRoutine } from "../data/defaultRoutines";
+import { sortRoutines } from "../utils/routineStorage";
 
 const RoutineContext = createContext(null);
 
 export function RoutineProvider({ children }) {
   const { user } = useAuth();
-  const { fetchRoutines, saveRoutine: persistRoutine, error: dataError } = useRoutines();
+  const {
+    fetchRoutines,
+    saveRoutine: persistRoutine,
+    deleteRoutine: persistDeleteRoutine,
+    error: dataError,
+  } = useRoutines();
   const [routines, setRoutines] = useState([]);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState(null);
@@ -35,24 +41,31 @@ export function RoutineProvider({ children }) {
   }, [refreshRoutines]);
 
   const saveRoutine = useCallback(async (routine) => {
-    setRoutines((current) => [
+    setRoutines((current) => sortRoutines([
       ...current.filter((item) => item.type !== routine.type),
       routine,
-    ].sort((a, b) => ["push", "pull", "legs"].indexOf(a.type) - ["push", "pull", "legs"].indexOf(b.type)));
+    ]));
 
     const result = await persistRoutine(routine);
     setSyncError(result.error || null);
     return result;
   }, [persistRoutine]);
 
+  const deleteRoutine = useCallback(async (type) => {
+    setRoutines((current) => current.filter((routine) => routine.type !== type));
+    const result = await persistDeleteRoutine(type);
+    setSyncError(result.error || null);
+    return result;
+  }, [persistDeleteRoutine]);
+
   const resetRoutine = useCallback(async (type) => {
     const fallback = getDefaultRoutine(type);
-    if (!fallback) return { error: "Rutina no encontrada" };
+    if (!fallback) return { error: "Esta rutina no tiene una base de Treino" };
     return saveRoutine(fallback);
   }, [saveRoutine]);
 
   const getRoutine = useCallback(
-    (type) => routines.find((routine) => routine.type === type) || getDefaultRoutine(type),
+    (type) => routines.find((routine) => routine.type === type) || getDefaultRoutine(type) || null,
     [routines]
   );
 
@@ -62,9 +75,10 @@ export function RoutineProvider({ children }) {
     syncError,
     refreshRoutines,
     saveRoutine,
+    deleteRoutine,
     resetRoutine,
     getRoutine,
-  }), [getRoutine, refreshRoutines, resetRoutine, routines, saveRoutine, syncError, syncing]);
+  }), [deleteRoutine, getRoutine, refreshRoutines, resetRoutine, routines, saveRoutine, syncError, syncing]);
 
   return <RoutineContext.Provider value={value}>{children}</RoutineContext.Provider>;
 }

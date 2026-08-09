@@ -3,17 +3,21 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { cloneDefaultRoutines } from "../data/defaultRoutines";
 import {
+  clearRoutineDeletePending,
   clearRoutinePending,
+  deleteLocalRoutine,
   getLocalRoutines,
+  getPendingRoutineDeletes,
   getPendingRoutineTypes,
+  markRoutineDeletePending,
   markRoutinePending,
   replaceLocalRoutines,
   saveLocalRoutine,
   setActiveRoutineUser,
+  sortRoutines,
 } from "../utils/routineStorage";
 
 const TABLE = "routines";
-const ORDER = ["push", "pull", "legs"];
 
 const normalizeRoutine = (routine = {}) => ({
   type: routine.type,
@@ -23,10 +27,7 @@ const normalizeRoutine = (routine = {}) => ({
   categories: Array.isArray(routine.categories) ? routine.categories : [],
 });
 
-const sortRoutines = (routines = []) =>
-  [...routines].map(normalizeRoutine).sort(
-    (a, b) => ORDER.indexOf(a.type) - ORDER.indexOf(b.type)
-  );
+const normalizeAndSort = (routines = []) => sortRoutines(routines.map(normalizeRoutine));
 
 const toPayload = (routine, userId) => ({
   user_id: userId,
@@ -43,6 +44,16 @@ export function useRoutines() {
   const [error, setError] = useState(null);
 
   const flushPending = useCallback(async (userId) => {
+    const pendingDeletes = getPendingRoutineDeletes(userId);
+    for (const type of pendingDeletes) {
+      const { error: deleteError } = await supabase
+        .from(TABLE)
+        .delete()
+        .eq("user_id", userId)
+        .eq("type", type);
+      if (!deleteError) clearRoutineDeletePending(userId, type);
+    }
+
     const pendingTypes = getPendingRoutineTypes(userId);
     if (!pendingTypes.length) return;
 
@@ -82,11 +93,11 @@ export function useRoutines() {
 
     if (fetchError) {
       setError(fetchError.message);
-      return sortRoutines(local);
+      return normalizeAndSort(local);
     }
 
     if (!data?.length) {
-      const seed = sortRoutines(local.length ? local : cloneDefaultRoutines());
+      const seed = normalizeAndSort(local.length ? local : cloneDefaultRoutines());
       replaceLocalRoutines(seed, userId);
 
       const { error: seedError } = await supabase
@@ -103,7 +114,7 @@ export function useRoutines() {
       return seed;
     }
 
-    const remote = sortRoutines(data);
+    const remote = normalizeAndSort(data);
     replaceLocalRoutines(remote, userId);
     setError(null);
     return remote;
@@ -120,6 +131,7 @@ export function useRoutines() {
     const userId = user.id;
     setActiveRoutineUser(userId);
     saveLocalRoutine(normalized, userId);
+    clearRoutineDeletePending(userId, normalized.type);
 
     const { error: saveError } = await supabase
       .from(TABLE)
@@ -136,5 +148,35 @@ export function useRoutines() {
     return { error: null, synced: true };
   }, [user]);
 
-  return { fetchRoutines, saveRoutine, loading, error };
+  const deleteRoutine = useCallback(async (type) => {
+    if (!type) return { error: "Rutina no encontrada", synced: false };
+
+    if (!user) {
+      deleteLocalRoutine(type);
+      return { error: null, synced: false };
+    }
+
+    const userId = user.id;
+    setActiveRoutineUser(userId);
+    deleteLocalRoutine(type, userId);
+    clearRoutinePending(userId, type);
+
+    const { error: deleteError } = await supabase
+      .from(TABLE)
+      .delete()
+      .eq("user_id", userId)
+      .eq("type", type);
+
+    if (deleteError) {
+      markRoutineDeletePending(userId, type);
+      setError(deleteError.message);
+      return { error: deleteError.message, synced: false };
+    }
+
+    clearRoutineDeletePending(userId, type);
+    setError(null);
+    return { error: null, synced: true };
+  }, [user]);
+
+  return { fetchRoutines, saveRoutine, deleteRoutine, loading, error };
 }

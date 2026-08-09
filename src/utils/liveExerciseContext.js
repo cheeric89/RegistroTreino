@@ -1,6 +1,7 @@
 import { getAllWorkouts } from "./storage";
 import { getExerciseProgressByKey } from "./exerciseProgress";
 import { normalizeExerciseName } from "./exerciseNames";
+import { isWarmupSet } from "./smartProgression";
 
 const toNumber = (value) => {
   const numeric = Number(value);
@@ -9,7 +10,7 @@ const toNumber = (value) => {
 
 const getCompletedSets = (sets = []) =>
   sets
-    .filter((set) => set?.done === true)
+    .filter((set) => set?.done === true && !isWarmupSet(set))
     .map((set) => ({
       weight: toNumber(set?.weight),
       reps: toNumber(set?.reps),

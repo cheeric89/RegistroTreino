@@ -9,6 +9,7 @@ import App from "./app";
 import "./styles.css";
 import "./styles/portfolio-core.css";
 import "./styles/portfolio-dashboard.css";
+import "./styles/portfolio-smart-dashboard.css";
 import "./styles/portfolio-account.css";
 import "./styles/portfolio-workout.css";
 import "./styles/portfolio-fixes.css";
@@ -19,6 +20,8 @@ import "./styles/portfolio-summary.css";
 import "./styles/portfolio-exercise-progress.css";
 import "./styles/portfolio-exercise-insights.css";
 import "./styles/portfolio-routines.css";
+import "./styles/portfolio-smart-progression.css";
+import "./styles/portfolio-smart-platform.css";
 import "./styles/portfolio-routine-launch.css";
 import "./styles/portfolio-workout-editor.css";
 

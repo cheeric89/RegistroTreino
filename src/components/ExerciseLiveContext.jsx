@@ -5,6 +5,10 @@ import {
   getExercisePrescription,
   getRepRangeProgress,
 } from "../utils/repRangeProgression";
+import {
+  getSessionComparison,
+  getSmartProgressionPlan,
+} from "../utils/smartProgression";
 import "./exercise-live-context.css";
 
 const formatMark = (mark) => {
@@ -16,6 +20,12 @@ const formatMark = (mark) => {
   if (weight > 0) return `${weight.toLocaleString("es-CL")} kg`;
   if (reps > 0) return `${reps} reps`;
   return "—";
+};
+
+const signed = (value, suffix = "") => {
+  const number = Number(value) || 0;
+  if (!number) return `0${suffix}`;
+  return `${number > 0 ? "+" : ""}${number.toLocaleString("es-CL")}${suffix}`;
 };
 
 const getStatusContent = (context) => {
@@ -63,12 +73,21 @@ const getStatusContent = (context) => {
     className: "exercise-live-status--waiting",
     icon: <Dumbbell size={16} />,
     title: "Comparación en vivo",
-    text: "Marca ✓ en una serie para compararla con tu historial.",
+    text: "Marca ✓ en una serie efectiva para compararla con tu historial.",
   };
 };
 
 const getRangeStatusContent = (progress) => {
   if (!progress) return null;
+
+  if (progress.deload) {
+    return {
+      className: "exercise-range-status--deload",
+      icon: <Dumbbell size={17} />,
+      title: "Modo descarga",
+      text: `Hoy solo necesitas ${progress.plannedSets} ${progress.plannedSets === 1 ? "serie efectiva" : "series efectivas"}. Mantén margen y no persigas el límite del rango.`,
+    };
+  }
 
   if (progress.state === "ready_to_increase") {
     return {
@@ -116,6 +135,14 @@ const getRangeStatusContent = (progress) => {
   };
 };
 
+const planClass = (state) => {
+  if (state === "increase_weight") return "is-increase";
+  if (state === "plateau") return "is-plateau";
+  if (state === "deload") return "is-deload";
+  if (state === "recover_range") return "is-recover";
+  return "";
+};
+
 export default function ExerciseLiveContext({ exerciseName, sets = [] }) {
   const context = useMemo(
     () => getLiveExerciseContext(exerciseName, sets),
@@ -128,6 +155,14 @@ export default function ExerciseLiveContext({ exerciseName, sets = [] }) {
   const rangeProgress = useMemo(
     () => getRepRangeProgress(sets, prescription),
     [sets, prescription]
+  );
+  const smartPlan = useMemo(
+    () => getSmartProgressionPlan(exerciseName, prescription),
+    [exerciseName, prescription]
+  );
+  const comparison = useMemo(
+    () => getSessionComparison(exerciseName, sets),
+    [exerciseName, sets]
   );
 
   if (!context) return null;
@@ -145,6 +180,20 @@ export default function ExerciseLiveContext({ exerciseName, sets = [] }) {
         </div>
         <span className="exercise-live-context__live">EN VIVO</span>
       </header>
+
+      {smartPlan && (
+        <div className={`exercise-smart-plan ${planClass(smartPlan.state)}`}>
+          <div className="exercise-smart-plan__icon"><Target size={17} /></div>
+          <div>
+            <span>PLAN DE HOY</span>
+            <strong>{smartPlan.title}</strong>
+            <p>{smartPlan.message}</p>
+            {smartPlan.incrementSource === "learned_smaller_jump" && (
+              <small>Treino redujo el salto sugerido porque detectó que aumentos mayores no se sostuvieron en tu historial.</small>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className={`exercise-live-context__grid ${prescription ? "has-prescription" : ""}`}>
         <article>
@@ -164,8 +213,14 @@ export default function ExerciseLiveContext({ exerciseName, sets = [] }) {
         <article className={context.targetReached ? "is-target" : ""}>
           <Target size={15} />
           <span>Meta de hoy</span>
-          <strong>{context.target ? formatMark(context.target) : "Crea tu marca"}</strong>
-          <small>{context.target?.title || "Registra tu primera referencia"}</small>
+          <strong>
+            {smartPlan?.weight > 0
+              ? `${smartPlan.weight.toLocaleString("es-CL")} kg × ${smartPlan.reps}`
+              : context.target
+                ? formatMark(context.target)
+                : "Crea tu marca"}
+          </strong>
+          <small>{smartPlan?.title || context.target?.title || "Registra tu primera referencia"}</small>
         </article>
 
         {prescription && (
@@ -173,12 +228,35 @@ export default function ExerciseLiveContext({ exerciseName, sets = [] }) {
             <Target size={15} />
             <span>Rango objetivo</span>
             <strong>{prescription.repMin}–{prescription.repMax} reps</strong>
-            <small>{prescription.sets} {prescription.sets === 1 ? "serie" : "series"} · doble progresión</small>
+            <small>{rangeProgress?.plannedSets || prescription.sets} {prescription.sets === 1 ? "serie" : "series"} · {prescription.restSeconds}s descanso</small>
           </article>
         )}
       </div>
 
-      {status && (
+      {comparison?.versusPrevious && (
+        <div className={`exercise-session-comparison ${comparison.beatsBest ? "is-best" : ""}`}>
+          <div>
+            <span>VS ÚLTIMA SESIÓN</span>
+            <strong>{comparison.beatsBest ? "Tu mejor sesión está ocurriendo ahora" : "Cómo vas hasta ahora"}</strong>
+          </div>
+          <div className="exercise-session-comparison__metrics">
+            <span className={comparison.versusPrevious.weight > 0 ? "is-positive" : ""}>
+              Peso {signed(comparison.versusPrevious.weight, " kg")}
+            </span>
+            <span className={comparison.versusPrevious.reps > 0 ? "is-positive" : ""}>
+              Reps {signed(comparison.versusPrevious.reps)}
+            </span>
+            <span className={comparison.versusPrevious.volume > 0 ? "is-positive" : ""}>
+              Volumen {signed(comparison.versusPrevious.volume, " kg")}
+            </span>
+            <span className={comparison.versusPrevious.estimated1RM > 0 ? "is-positive" : ""}>
+              1RM est. {signed(comparison.versusPrevious.estimated1RM, " kg")}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {status && !prescription?.deload && (
         <div className={`exercise-live-status ${status.className}`} role="status" aria-live="polite">
           {status.icon}
           <div>
