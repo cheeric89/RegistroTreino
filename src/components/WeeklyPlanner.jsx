@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, Play, Save } from "lucide-react";
 import { toast } from "sonner";
-import { useProfile } from "../hooks/useProfile";
 import { useRoutineContext } from "../contexts/RoutineContext";
 import TreinoSelect from "./ui/TreinoSelect";
 
@@ -29,9 +28,13 @@ export const getTodayPlanKey = () => {
   return DAYS.find((day) => day.jsDay === jsDay)?.key || "monday";
 };
 
-export default function WeeklyPlanner({ onStartRoutine }) {
+export default function WeeklyPlanner({
+  profile,
+  saving = false,
+  saveProfile,
+  onStartRoutine,
+}) {
   const { routines } = useRoutineContext();
-  const { profile, saving, saveProfile } = useProfile();
   const [plan, setPlan] = useState(() => normalizePlan(profile?.weekly_plan));
   const [dirty, setDirty] = useState(false);
   const todayKey = getTodayPlanKey();
@@ -58,6 +61,7 @@ export default function WeeklyPlanner({ onStartRoutine }) {
   };
 
   const handleSave = async () => {
+    if (!saveProfile) return;
     const { error } = await saveProfile({ weekly_plan: normalizePlan(plan) });
     if (error) {
       toast.error("No se pudo sincronizar tu semana", {
