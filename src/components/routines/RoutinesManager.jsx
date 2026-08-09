@@ -9,6 +9,7 @@ import {
   RotateCcw,
   Save,
   Sparkles,
+  Target,
   Trash2,
   Trophy,
 } from "lucide-react";
@@ -17,6 +18,7 @@ import { useRoutineContext } from "../../contexts/RoutineContext";
 import { useWorkoutContext } from "../../contexts/WorkoutContext";
 import { buildExerciseProgress } from "../../utils/exerciseProgress";
 import { normalizeExerciseName } from "../../utils/exerciseNames";
+import { normalizeRepRange } from "../../utils/repRangeProgression";
 import { countRoutineExercises, countRoutineSets } from "../../utils/routines";
 
 const TYPES = ["push", "pull", "legs"];
@@ -45,6 +47,29 @@ const formatTarget = (target) => {
   if (weight > 0) return `${weight.toLocaleString("es-CL")} kg`;
   return reps > 0 ? `${reps} reps` : "Sin meta aún";
 };
+
+const sanitizeRoutine = (draft, activeType) => ({
+  ...draft,
+  name: draft.name.trim() || activeType[0].toUpperCase() + activeType.slice(1),
+  categories: draft.categories
+    .map((category) => ({
+      ...category,
+      name: category.name.trim() || "Grupo muscular",
+      exercises: category.exercises
+        .filter((exercise) => exercise.name?.trim())
+        .map((exercise) => {
+          const { repMin, repMax } = normalizeRepRange(exercise);
+          return {
+            ...exercise,
+            name: exercise.name.trim(),
+            sets: Math.min(8, Math.max(1, Number(exercise.sets) || 1)),
+            repMin,
+            repMax,
+          };
+        }),
+    }))
+    .filter((category) => category.exercises.length > 0),
+});
 
 export default function RoutinesManager({ initialType = "push", onBack, onStartRoutine }) {
   const { routines, syncing, syncError, saveRoutine, resetRoutine, getRoutine } = useRoutineContext();
@@ -90,7 +115,7 @@ export default function RoutinesManager({ initialType = "push", onBack, onStartR
   const addExercise = (categoryIndex) => {
     setCategory(categoryIndex, (category) => ({
       ...category,
-      exercises: [...category.exercises, { name: "", sets: 3 }],
+      exercises: [...category.exercises, { name: "", sets: 3, repMin: 8, repMax: 12 }],
     }));
   };
 
@@ -122,28 +147,18 @@ export default function RoutinesManager({ initialType = "push", onBack, onStartR
     }));
   };
 
-  const handleSave = async () => {
-    const cleaned = {
-      ...draft,
-      name: draft.name.trim() || activeType[0].toUpperCase() + activeType.slice(1),
-      categories: draft.categories
-        .map((category) => ({
-          ...category,
-          name: category.name.trim() || "Grupo muscular",
-          exercises: category.exercises
-            .filter((exercise) => exercise.name.trim())
-            .map((exercise) => ({
-              name: exercise.name.trim(),
-              sets: Math.min(8, Math.max(1, Number(exercise.sets) || 1)),
-            })),
-        }))
-        .filter((category) => category.exercises.length > 0),
-    };
-
+  const getCleanedRoutine = () => {
+    const cleaned = sanitizeRoutine(draft, activeType);
     if (!cleaned.categories.length) {
-      toast.error("Agrega al menos un ejercicio antes de guardar");
-      return;
+      toast.error("Agrega al menos un ejercicio antes de continuar");
+      return null;
     }
+    return cleaned;
+  };
+
+  const handleSave = async () => {
+    const cleaned = getCleanedRoutine();
+    if (!cleaned) return;
 
     setSaving(true);
     const result = await saveRoutine(cleaned);
@@ -157,6 +172,15 @@ export default function RoutinesManager({ initialType = "push", onBack, onStartR
     } else {
       toast.success(`${cleaned.name} guardada y sincronizada`);
     }
+  };
+
+  const handleStartRoutine = () => {
+    const cleaned = getCleanedRoutine();
+    if (!cleaned) return;
+
+    setDraft(cloneRoutine(cleaned));
+    void saveRoutine(cleaned);
+    onStartRoutine?.(cleaned);
   };
 
   const handleReset = async () => {
@@ -179,15 +203,15 @@ export default function RoutinesManager({ initialType = "push", onBack, onStartR
         <div>
           <span className="page-eyebrow">Tu sistema de entrenamiento</span>
           <h1>Mis rutinas</h1>
-          <p>Define los ejercicios que quieres repetir y deja que Treino se encargue de mostrarte PRs, referencias y próximas metas.</p>
+          <p>Configura ejercicios, series y rangos de repeticiones. Treino seguirá tu progreso y te avisará cuándo conviene subir el peso.</p>
         </div>
       </header>
 
       <section className="routines-progress-callout">
         <Sparkles size={21} />
         <div>
-          <strong>Diseñadas para progresar</strong>
-          <span>Los cambios aquí solo afectan tus próximas sesiones. Tu historial anterior permanece intacto.</span>
+          <strong>Doble progresión, sin complicarte</strong>
+          <span>Primero completa el rango de reps; cuando llegues al máximo en todas tus series, Treino te marcará que puedes aumentar la carga.</span>
         </div>
         <small>{syncing ? "Sincronizando…" : syncError ? "Modo offline" : "Sincronizado"}</small>
       </section>
@@ -224,7 +248,7 @@ export default function RoutinesManager({ initialType = "push", onBack, onStartR
             />
             <p>{exerciseCount} ejercicios · {setCount} series programadas</p>
           </div>
-          <button type="button" className="primary-action-button" onClick={() => onStartRoutine?.(draft)}>
+          <button type="button" className="primary-action-button" onClick={handleStartRoutine}>
             <Play size={17} fill="currentColor" />
             Entrenar ahora
           </button>
@@ -247,6 +271,7 @@ export default function RoutinesManager({ initialType = "push", onBack, onStartR
               <div className="routine-exercise-list">
                 {category.exercises.map((exercise, exerciseIndex) => {
                   const progress = progressMap.get(normalizeExerciseName(exercise.name));
+                  const repRange = normalizeRepRange(exercise);
                   return (
                     <article key={`routine-exercise-${categoryIndex}-${exerciseIndex}`} className="routine-exercise-row">
                       <div className="routine-exercise-row__order">
@@ -266,6 +291,7 @@ export default function RoutinesManager({ initialType = "push", onBack, onStartR
                           aria-label={`Ejercicio ${exerciseIndex + 1}`}
                         />
                         <div className="routine-exercise-row__progress">
+                          <span className="routine-range-pill"><Target size={13} /> {repRange.repMin}–{repRange.repMax} reps</span>
                           {progress ? (
                             <>
                               <span><Trophy size={13} /> PR {progress.bestWeight || 0} kg</span>
@@ -277,17 +303,44 @@ export default function RoutinesManager({ initialType = "push", onBack, onStartR
                         </div>
                       </div>
 
-                      <label className="routine-sets-control">
-                        <span>Series</span>
-                        <input
-                          type="number"
-                          min="1"
-                          max="8"
-                          inputMode="numeric"
-                          value={exercise.sets}
-                          onChange={(event) => updateExercise(categoryIndex, exerciseIndex, { sets: event.target.value })}
-                        />
-                      </label>
+                      <div className="routine-prescription-controls">
+                        <label className="routine-sets-control">
+                          <span>Series</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="8"
+                            inputMode="numeric"
+                            value={exercise.sets}
+                            onChange={(event) => updateExercise(categoryIndex, exerciseIndex, { sets: event.target.value })}
+                          />
+                        </label>
+
+                        <label className="routine-reps-control">
+                          <span>Rango reps</span>
+                          <div>
+                            <input
+                              type="number"
+                              min="1"
+                              max="50"
+                              inputMode="numeric"
+                              value={exercise.repMin ?? 8}
+                              onChange={(event) => updateExercise(categoryIndex, exerciseIndex, { repMin: event.target.value })}
+                              aria-label={`Repeticiones mínimas de ${exercise.name || `ejercicio ${exerciseIndex + 1}`}`}
+                            />
+                            <b>–</b>
+                            <input
+                              type="number"
+                              min="1"
+                              max="60"
+                              inputMode="numeric"
+                              value={exercise.repMax ?? 12}
+                              onChange={(event) => updateExercise(categoryIndex, exerciseIndex, { repMax: event.target.value })}
+                              aria-label={`Repeticiones máximas de ${exercise.name || `ejercicio ${exerciseIndex + 1}`}`}
+                            />
+                          </div>
+                        </label>
+                      </div>
 
                       <button type="button" className="routine-row-delete" onClick={() => removeExercise(categoryIndex, exerciseIndex)} aria-label="Eliminar ejercicio">
                         <Trash2 size={15} />

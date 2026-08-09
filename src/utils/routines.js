@@ -3,6 +3,8 @@ export const routineToTemplateCategories = (routine) =>
     name: category.name,
     exercises: (category.exercises || []).map((exercise) => ({
       name: exercise.name,
+      repMin: exercise.repMin,
+      repMax: exercise.repMax,
       sets: Array.from({ length: Math.max(1, Number(exercise.sets) || 1) }, () => ({})),
     })),
   }));
