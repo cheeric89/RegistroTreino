@@ -25,6 +25,7 @@ import "./styles/portfolio-smart-platform.css";
 import "./styles/portfolio-coaching-planning.css";
 import "./styles/portfolio-nutrition-body.css";
 import "./styles/portfolio-meal-logger.css";
+import "./styles/portfolio-custom-recipes.css";
 import "./styles/portfolio-routine-launch.css";
 import "./styles/portfolio-workout-editor.css";
 
