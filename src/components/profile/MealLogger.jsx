@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, Loader2, Plus, Save, Search, Trash2, Utensils, X } from "lucide-react";
 import { toast } from "sonner";
 import { searchFoodCatalog } from "../../data/foodCatalog";
+import { useProfile } from "../../hooks/useProfile";
 import {
   MEAL_TYPES,
   createMealItem,
@@ -18,13 +19,9 @@ const round1 = (value) => Math.round((Number(value) || 0) * 10) / 10;
 const normalize = (value = "") => value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 const makeId = () => typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 
-export default function MealLogger({
-  entry,
-  saving,
-  onSave,
-  customFoods = [],
-  onSaveCustomFoods,
-}) {
+export default function MealLogger({ entry, saving, onSave }) {
+  const { profile, saveProfile, saving: profileSaving } = useProfile();
+  const customFoods = Array.isArray(profile?.custom_recipes) ? profile.custom_recipes : [];
   const meals = Array.isArray(entry?.meals) ? entry.meals : [];
   const [activeMeal, setActiveMeal] = useState(null);
   const [query, setQuery] = useState("");
@@ -40,9 +37,8 @@ export default function MealLogger({
   const localFoods = useMemo(() => searchFoodCatalog(query), [query]);
   const customMatches = useMemo(() => {
     const q = normalize(query);
-    const foods = Array.isArray(customFoods) ? customFoods : [];
-    if (!q) return foods.slice(0, 8);
-    return foods.filter((food) => normalize(food?.name).includes(q)).slice(0, 8);
+    if (!q) return customFoods.slice(0, 8);
+    return customFoods.filter((food) => normalize(food?.name).includes(q)).slice(0, 8);
   }, [customFoods, query]);
 
   const combinedFoods = useMemo(() => {
@@ -182,8 +178,8 @@ export default function MealLogger({
     const recipe = buildRecipeFood();
     if (!recipe) return toast.error("No se pudo calcular la receta");
 
-    const next = [recipe, ...(Array.isArray(customFoods) ? customFoods : []).filter((item) => normalize(item.name) !== normalize(recipe.name))];
-    const result = await onSaveCustomFoods?.(next);
+    const next = [recipe, ...customFoods.filter((item) => normalize(item.name) !== normalize(recipe.name))];
+    const result = await saveProfile({ custom_recipes: next });
     if (result?.error) toast.warning("Receta guardada localmente; se sincronizará después");
     else toast.success(`${recipe.name} guardada en Mis comidas`);
 
