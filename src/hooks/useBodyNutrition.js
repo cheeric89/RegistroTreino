@@ -42,6 +42,7 @@ const normalizeNutritionEntry = (entry = {}) => ({
   protein_g: Math.round(nonNegative(entry.protein_g) * 10) / 10,
   carbs_g: Math.round(nonNegative(entry.carbs_g) * 10) / 10,
   fat_g: Math.round(nonNegative(entry.fat_g) * 10) / 10,
+  meals: Array.isArray(entry.meals) ? entry.meals : [],
 });
 
 const toRemotePayload = (entry, userId) => ({
@@ -96,7 +97,7 @@ export function useBodyNutrition() {
         .order("entry_date", { ascending: false }),
       supabase
         .from(NUTRITION_TABLE)
-        .select("entry_date,calories,protein_g,carbs_g,fat_g,updated_at")
+        .select("entry_date,calories,protein_g,carbs_g,fat_g,meals,updated_at")
         .eq("user_id", userId)
         .order("entry_date", { ascending: false }),
     ]);
@@ -112,7 +113,8 @@ export function useBodyNutrition() {
     const pendingBody = pending.filter((item) => item.kind === "body").map((item) => item.entry);
     const pendingNutrition = pending.filter((item) => item.kind === "nutrition").map((item) => item.entry);
     const nextBody = mergeBodyNutritionEntries(bodyResult.data || [], pendingBody);
-    const nextNutrition = mergeBodyNutritionEntries(nutritionResult.data || [], pendingNutrition);
+    const nextNutrition = mergeBodyNutritionEntries(bodyResult.error ? localNutrition : nutritionResult.data || [], pendingNutrition)
+      .map(normalizeNutritionEntry);
 
     replaceLocalBodyEntries(userId, nextBody);
     replaceLocalNutritionEntries(userId, nextNutrition);
