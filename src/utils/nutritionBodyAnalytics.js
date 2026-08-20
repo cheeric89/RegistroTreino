@@ -31,10 +31,11 @@ export const getAgeFromBirthDate = (birthDate) => {
 };
 
 export const estimateNutritionTargets = (profile = {}) => {
-  const weight = numberOrNull(profile.weight_kg);
-  const height = numberOrNull(profile.height_cm);
-  const age = getAgeFromBirthDate(profile.birth_date);
-  const sex = profile.energy_formula_sex;
+  const safeProfile = profile || {};
+  const weight = numberOrNull(safeProfile.weight_kg);
+  const height = numberOrNull(safeProfile.height_cm);
+  const age = getAgeFromBirthDate(safeProfile.birth_date);
+  const sex = safeProfile.energy_formula_sex;
   if (!weight || !height || age == null || age < 18 || !["male", "female"].includes(sex)) {
     return null;
   }
@@ -45,12 +46,12 @@ export const estimateNutritionTargets = (profile = {}) => {
     light: 1.375,
     moderate: 1.55,
     high: 1.725,
-  }[profile.activity_level] || 1.55;
+  }[safeProfile.activity_level] || 1.55;
 
   const maintenance = bmr * activityMultiplier;
-  const adjustment = profile.training_goal === "fat_loss"
+  const adjustment = safeProfile.training_goal === "fat_loss"
     ? -300
-    : profile.training_goal === "muscle_gain"
+    : safeProfile.training_goal === "muscle_gain"
       ? 200
       : 0;
   const calories = Math.max(1400, Math.round((maintenance + adjustment) / 10) * 10);
@@ -119,12 +120,15 @@ export const getTodayNutrition = (entries = []) => {
   };
 };
 
-export const getNutritionTargets = (profile = {}) => ({
-  calories: Math.max(0, Number(profile.calorie_target) || 0),
-  protein: Math.max(0, Number(profile.protein_target_g) || 0),
-  carbs: Math.max(0, Number(profile.carbs_target_g) || 0),
-  fat: Math.max(0, Number(profile.fat_target_g) || 0),
-});
+export const getNutritionTargets = (profile = {}) => {
+  const safeProfile = profile || {};
+  return {
+    calories: Math.max(0, Number(safeProfile.calorie_target) || 0),
+    protein: Math.max(0, Number(safeProfile.protein_target_g) || 0),
+    carbs: Math.max(0, Number(safeProfile.carbs_target_g) || 0),
+    fat: Math.max(0, Number(safeProfile.fat_target_g) || 0),
+  };
+};
 
 export const getMacroPercent = (value, target) => {
   const numericTarget = Number(target) || 0;
