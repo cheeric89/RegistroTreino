@@ -121,7 +121,7 @@ export default function GoalsView() {
       </section>
 
       <section className="goals-section-card">
-        <header><div><span className="card-kicker">Preparado para nutrición</span><h2>Actividad y tendencia</h2></div><Sparkles size={19} /></header>
+        <header><div><span className="card-kicker">Conecta con Nutrition & Body</span><h2>Actividad y tendencia</h2></div><Sparkles size={19} /></header>
         <div className="activity-choice-grid">
           {ACTIVITY.map((item) => (
             <button key={item.value} type="button" className={form.activity_level === item.value ? "is-selected" : ""} onClick={() => setForm((current) => ({ ...current, activity_level: item.value }))}>
@@ -139,7 +139,7 @@ export default function GoalsView() {
             ))}
           </div>
         </div>
-        <p className="nutrition-ready-note">Con esto Treino ya tendrá la base para un futuro módulo de calorías, macros y tendencia corporal. Todavía no calcula dietas ni calorías automáticamente.</p>
+        <p className="nutrition-ready-note">Estos datos se usan en Cuerpo & Nutrición para contextualizar tu tendencia y, si tú lo eliges, generar una estimación inicial de calorías y macros. Los objetivos nutricionales siempre quedan editables.</p>
       </section>
 
       <button type="submit" className="primary-action-button goals-save-button" disabled={saving}><Save size={17} /> {saving ? "Guardando…" : "Guardar objetivos"}</button>

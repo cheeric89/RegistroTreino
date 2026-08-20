@@ -17,6 +17,7 @@ import {
   getBestExerciseMarks,
   groupWorkouts,
 } from "../utils/workoutHistory";
+import NutritionBodyDashboard from "./NutritionBodyDashboard";
 import SmartDashboard from "./SmartDashboard";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -220,6 +221,8 @@ export default function Dashboard({
         onStartRoutine={onStartRoutine}
         onManageRoutines={onManageRoutines}
       />
+
+      <NutritionBodyDashboard profile={profile} />
 
       {dashboardData.latest && (
         <section className="continue-card">
