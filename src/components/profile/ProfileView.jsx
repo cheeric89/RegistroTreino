@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  Activity,
   Edit3,
   LogOut,
   Save,
@@ -12,6 +13,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "../../contexts/AuthContext";
 import { useProfile } from "../../hooks/useProfile";
+import BodyNutritionView from "./BodyNutritionView";
 import GoalsView from "./GoalsView";
 import PRsView from "./PRsView";
 import SettingsView from "./SettingsView";
@@ -19,6 +21,7 @@ import SettingsView from "./SettingsView";
 const TABS = [
   { id: "overview", label: "Perfil", icon: User },
   { id: "goals", label: "Objetivos", icon: Target },
+  { id: "body", label: "Cuerpo & Nutrición", icon: Activity },
   { id: "prs", label: "Récords", icon: Trophy },
   { id: "settings", label: "Ajustes", icon: Settings },
 ];
@@ -81,7 +84,7 @@ export default function ProfileView({ initialTab = "overview" }) {
         <div>
           <span className="page-eyebrow">Centro personal</span>
           <h1>Tu cuenta</h1>
-          <p>Administra tus datos, objetivos, récords y preferencias de entrenamiento.</p>
+          <p>Administra tus datos, objetivos, cuerpo, nutrición, récords y preferencias de entrenamiento.</p>
         </div>
         <div className="profile-heading__avatar" aria-hidden="true">{getInitials(profile, user)}</div>
       </header>
@@ -128,7 +131,7 @@ export default function ProfileView({ initialTab = "overview" }) {
               <aside className="profile-actions-card">
                 <span className="card-kicker">Datos personales</span>
                 <h2>Mantén tu perfil actualizado</h2>
-                <p>Estos datos alimentan tus métricas y la nueva sección de objetivos.</p>
+                <p>Estos datos alimentan tus métricas, objetivos y estimaciones opcionales de Nutrition & Body.</p>
                 <button type="button" className="primary-action-button" onClick={() => setEditing(true)}><Edit3 size={17} /> Editar información</button>
                 <button type="button" className="profile-logout-button" onClick={handleLogout}><LogOut size={17} /> Cerrar sesión</button>
               </aside>
@@ -164,6 +167,7 @@ export default function ProfileView({ initialTab = "overview" }) {
         )}
 
         {tab === "goals" && <GoalsView />}
+        {tab === "body" && <BodyNutritionView />}
         {tab === "prs" && <PRsView />}
         {tab === "settings" && <SettingsView />}
       </div>
