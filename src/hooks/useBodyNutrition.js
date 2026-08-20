@@ -13,6 +13,7 @@ import {
   upsertLocalBodyEntry,
   upsertLocalNutritionEntry,
 } from "../utils/bodyNutritionStorage";
+import { getLocalDateKey } from "../utils/nutritionBodyAnalytics";
 
 const BODY_TABLE = "body_entries";
 const NUTRITION_TABLE = "nutrition_entries";
@@ -26,7 +27,7 @@ const nullableNumber = (value) => {
 const nonNegative = (value) => Math.max(0, Number(value) || 0);
 
 const normalizeBodyEntry = (entry = {}) => ({
-  entry_date: String(entry.entry_date || new Date().toISOString().slice(0, 10)),
+  entry_date: String(entry.entry_date || getLocalDateKey()),
   weight_kg: nullableNumber(entry.weight_kg),
   waist_cm: nullableNumber(entry.waist_cm),
   chest_cm: nullableNumber(entry.chest_cm),
@@ -36,7 +37,7 @@ const normalizeBodyEntry = (entry = {}) => ({
 });
 
 const normalizeNutritionEntry = (entry = {}) => ({
-  entry_date: String(entry.entry_date || new Date().toISOString().slice(0, 10)),
+  entry_date: String(entry.entry_date || getLocalDateKey()),
   calories: Math.round(nonNegative(entry.calories)),
   protein_g: Math.round(nonNegative(entry.protein_g) * 10) / 10,
   carbs_g: Math.round(nonNegative(entry.carbs_g) * 10) / 10,
