@@ -21,6 +21,7 @@ import {
   getTodayNutrition,
   getWeightAnalytics,
 } from "../../utils/nutritionBodyAnalytics";
+import MealLogger from "./MealLogger";
 
 const BODY_FIELDS = [
   ["weight_kg", "Peso", "kg", 20, 400],
@@ -31,15 +32,7 @@ const BODY_FIELDS = [
   ["hip_cm", "Cadera", "cm", 20, 300],
 ];
 
-const MACRO_FIELDS = [
-  ["calories", "Calorías", "kcal"],
-  ["protein_g", "Proteína", "g"],
-  ["carbs_g", "Carbohidratos", "g"],
-  ["fat_g", "Grasas", "g"],
-];
-
 const emptyBody = () => ({ entry_date: getLocalDateKey() });
-const emptyNutrition = () => ({ entry_date: getLocalDateKey(), calories: "", protein_g: "", carbs_g: "", fat_g: "" });
 
 const formatDelta = (value) => value == null
   ? "—"
@@ -86,15 +79,12 @@ export default function BodyNutritionView() {
   const { bodyEntries, nutritionEntries, loading, saving, syncError, saveBodyEntry, saveNutritionEntry } = useBodyNutrition();
   const [mode, setMode] = useState("body");
   const [bodyForm, setBodyForm] = useState(emptyBody);
-  const [nutritionForm, setNutritionForm] = useState(emptyNutrition);
   const [targets, setTargets] = useState({ birth_date: "", energy_formula_sex: "", calorie_target: "", protein_target_g: "", carbs_target_g: "", fat_target_g: "" });
 
   useEffect(() => {
     const today = bodyEntries.find((item) => item.entry_date === getLocalDateKey());
     setBodyForm(today ? { ...emptyBody(), ...today } : emptyBody());
   }, [bodyEntries]);
-
-  useEffect(() => setNutritionForm({ ...emptyNutrition(), ...getTodayNutrition(nutritionEntries) }), [nutritionEntries]);
 
   useEffect(() => {
     if (!profile) return;
@@ -120,12 +110,6 @@ export default function BodyNutritionView() {
     const result = await saveBodyEntry(bodyForm);
     if (bodyForm.weight_kg !== "" && bodyForm.weight_kg != null) await saveProfile({ weight_kg: Number(bodyForm.weight_kg) });
     result.error ? toast.warning("Guardado localmente; se sincronizará después") : toast.success("Registro corporal guardado");
-  };
-
-  const handleNutritionSave = async (event) => {
-    event.preventDefault();
-    const result = await saveNutritionEntry(nutritionForm);
-    result.error ? toast.warning("Guardado localmente; se sincronizará después") : toast.success("Nutrición del día guardada");
   };
 
   const persistTargets = async (source = targets) => {
@@ -196,11 +180,7 @@ export default function BodyNutritionView() {
             <div className="nutrition-macro-grid"><MacroProgress label="Proteína" value={todayNutrition.protein_g} target={macroTargets.protein} /><MacroProgress label="Carbohidratos" value={todayNutrition.carbs_g} target={macroTargets.carbs} /><MacroProgress label="Grasas" value={todayNutrition.fat_g} target={macroTargets.fat} /></div>
           </section>
 
-          <form className="nutrition-entry-card" onSubmit={handleNutritionSave}>
-            <header><div><span className="card-kicker">Registro diario</span><h3>¿Qué llevas hoy?</h3></div><Utensils size={19} /></header>
-            <div className="nutrition-entry-grid"><label><span>Fecha</span><input type="date" value={nutritionForm.entry_date} onChange={(event) => setNutritionForm((current) => ({ ...current, entry_date: event.target.value }))} /></label>{MACRO_FIELDS.map(([key, label, unit]) => <label key={key}><span>{label} ({unit})</span><input type="number" min="0" step={key === "calories" ? "1" : "0.1"} inputMode="decimal" value={nutritionForm[key] ?? ""} onChange={(event) => setNutritionForm((current) => ({ ...current, [key]: event.target.value }))} /></label>)}</div>
-            <button type="submit" className="primary-action-button" disabled={saving}><Save size={16} /> {saving ? "Guardando…" : "Guardar día"}</button>
-          </form>
+          <MealLogger entry={todayNutrition} saving={saving} onSave={saveNutritionEntry} />
 
           <section className="nutrition-target-card">
             <header><div><span className="card-kicker">Configuración</span><h3>Calorías y macros objetivo</h3></div><Target size={20} /></header>
