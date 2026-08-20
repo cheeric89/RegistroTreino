@@ -10,6 +10,13 @@ const dateMs = (value) => {
   return Number.isFinite(timestamp) ? timestamp : 0;
 };
 
+export const getLocalDateKey = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 export const getAgeFromBirthDate = (birthDate) => {
   if (!birthDate) return null;
   const birth = new Date(`${birthDate}T12:00:00`);
@@ -102,7 +109,7 @@ export const getWeightAnalytics = (entries = [], targetWeight = null) => {
 };
 
 export const getTodayNutrition = (entries = []) => {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getLocalDateKey();
   return entries.find((entry) => entry.entry_date === today) || {
     entry_date: today,
     calories: 0,
