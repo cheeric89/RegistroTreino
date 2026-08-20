@@ -111,12 +111,15 @@ export const getWeightAnalytics = (entries = [], targetWeight = null) => {
 
 export const getTodayNutrition = (entries = []) => {
   const today = getLocalDateKey();
-  return entries.find((entry) => entry.entry_date === today) || {
+  const found = entries.find((entry) => entry.entry_date === today);
+  if (found) return { ...found, meals: Array.isArray(found.meals) ? found.meals : [] };
+  return {
     entry_date: today,
     calories: 0,
     protein_g: 0,
     carbs_g: 0,
     fat_g: 0,
+    meals: [],
   };
 };
 
