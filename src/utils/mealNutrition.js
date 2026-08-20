@@ -27,7 +27,7 @@ export const createMealItem = (food, portions = 1) => {
     food_id: food.id,
     name: food.name,
     category: food.category,
-    source: "treino_catalog",
+    source: food.source || "treino_catalog",
     estimated: Boolean(food.estimated),
     portion_label: food.portionLabel || "porción",
     portions: quantity,
@@ -36,6 +36,7 @@ export const createMealItem = (food, portions = 1) => {
     protein100: Number(food.protein100) || 0,
     carbs100: Number(food.carbs100) || 0,
     fat100: Number(food.fat100) || 0,
+    recipe_ingredients: Array.isArray(food.ingredients) ? food.ingredients : undefined,
     ...nutrition,
   };
 };
