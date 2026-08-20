@@ -113,7 +113,7 @@ export function useBodyNutrition() {
     const pendingBody = pending.filter((item) => item.kind === "body").map((item) => item.entry);
     const pendingNutrition = pending.filter((item) => item.kind === "nutrition").map((item) => item.entry);
     const nextBody = mergeBodyNutritionEntries(bodyResult.data || [], pendingBody);
-    const nextNutrition = mergeBodyNutritionEntries(bodyResult.error ? localNutrition : nutritionResult.data || [], pendingNutrition)
+    const nextNutrition = mergeBodyNutritionEntries(nutritionResult.data || [], pendingNutrition)
       .map(normalizeNutritionEntry);
 
     replaceLocalBodyEntries(userId, nextBody);
