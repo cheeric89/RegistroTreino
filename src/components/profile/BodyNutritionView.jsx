@@ -74,12 +74,14 @@ function MacroProgress({ label, value, target, unit = "g" }) {
   );
 }
 
-export default function BodyNutritionView() {
+export default function BodyNutritionView({ initialMode = "body" }) {
   const { profile, saveProfile, saving: profileSaving } = useProfile();
   const { bodyEntries, nutritionEntries, loading, saving, syncError, saveBodyEntry, saveNutritionEntry } = useBodyNutrition();
-  const [mode, setMode] = useState("body");
+  const [mode, setMode] = useState(initialMode);
   const [bodyForm, setBodyForm] = useState(emptyBody);
   const [targets, setTargets] = useState({ birth_date: "", energy_formula_sex: "", calorie_target: "", protein_target_g: "", carbs_target_g: "", fat_target_g: "" });
+
+  useEffect(() => setMode(initialMode), [initialMode]);
 
   useEffect(() => {
     const today = bodyEntries.find((item) => item.entry_date === getLocalDateKey());
@@ -135,7 +137,7 @@ export default function BodyNutritionView() {
   return (
     <div className="body-nutrition-view">
       <section className="body-nutrition-hero">
-        <div><span className="card-kicker">Treino 1.4</span><h2>Nutrition & Body</h2><p>Conecta tu rendimiento con peso, medidas, calorías y macros.</p></div>
+        <div><span className="card-kicker">Treino 1.5</span><h2>Nutrition & Body</h2><p>Registra cuerpo y comidas con menos pasos, favoritos y accesos rápidos.</p></div>
         <div className="body-nutrition-sync" role="status"><span className={syncError ? "is-offline" : "is-online"} />{loading ? "Sincronizando…" : syncError ? "Modo offline" : "Sincronizado"}</div>
       </section>
 
@@ -180,7 +182,7 @@ export default function BodyNutritionView() {
             <div className="nutrition-macro-grid"><MacroProgress label="Proteína" value={todayNutrition.protein_g} target={macroTargets.protein} /><MacroProgress label="Carbohidratos" value={todayNutrition.carbs_g} target={macroTargets.carbs} /><MacroProgress label="Grasas" value={todayNutrition.fat_g} target={macroTargets.fat} /></div>
           </section>
 
-          <MealLogger entry={todayNutrition} saving={saving} onSave={saveNutritionEntry} />
+          <MealLogger entry={todayNutrition} history={nutritionEntries} saving={saving} onSave={saveNutritionEntry} />
 
           <section className="nutrition-target-card">
             <header><div><span className="card-kicker">Configuración</span><h3>Calorías y macros objetivo</h3></div><Target size={20} /></header>
