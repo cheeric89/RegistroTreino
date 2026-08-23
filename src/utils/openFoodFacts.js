@@ -40,6 +40,8 @@ const toFood = (product = {}) => {
   };
 };
 
+const PRODUCT_FIELDS = "code,product_name,brands,nutriments,serving_size,serving_quantity";
+
 export async function searchOpenFoodFacts(query, { signal } = {}) {
   const term = String(query || "").trim();
   if (term.length < 3) return [];
@@ -50,7 +52,7 @@ export async function searchOpenFoodFacts(query, { signal } = {}) {
     action: "process",
     json: "1",
     page_size: "8",
-    fields: "code,product_name,brands,nutriments,serving_size,serving_quantity",
+    fields: PRODUCT_FIELDS,
   });
 
   try {
@@ -65,5 +67,26 @@ export async function searchOpenFoodFacts(query, { signal } = {}) {
     if (error?.name === "AbortError") return [];
     console.warn("[Treino] Open Food Facts no disponible:", error?.message || error);
     return [];
+  }
+}
+
+export async function getOpenFoodFactsByBarcode(barcode, { signal } = {}) {
+  const code = String(barcode || "").replace(/\D/g, "");
+  if (code.length < 8 || code.length > 14) return null;
+
+  try {
+    const params = new URLSearchParams({ fields: PRODUCT_FIELDS });
+    const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?${params.toString()}`, {
+      method: "GET",
+      signal,
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (data.status !== 1 || !data.product) return null;
+    return toFood({ ...data.product, code: data.product.code || code });
+  } catch (error) {
+    if (error?.name === "AbortError") return null;
+    console.warn("[Treino] búsqueda por código no disponible:", error?.message || error);
+    return null;
   }
 }
