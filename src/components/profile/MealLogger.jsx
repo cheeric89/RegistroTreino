@@ -1,28 +1,57 @@
-import { useEffect, useMemo, useState } from "react";
-import { Check, Loader2, Plus, Save, Search, Trash2, Utensils, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Camera,
+  Check,
+  Copy,
+  History,
+  Loader2,
+  Plus,
+  Save,
+  ScanLine,
+  Search,
+  Star,
+  Trash2,
+  Utensils,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { searchFoodCatalog } from "../../data/foodCatalog";
 import { useProfile } from "../../hooks/useProfile";
 import {
   MEAL_TYPES,
+  cloneMeals,
   createMealItem,
   getMealForType,
   removeMealItem,
+  replaceMealItems,
   sumMealItems,
   sumMeals,
   upsertMealItem,
 } from "../../utils/mealNutrition";
-import { searchOpenFoodFacts } from "../../utils/openFoodFacts";
+import {
+  getFoodKey,
+  isFavoriteFood,
+  matchesFoodQuery,
+  pushRecentFood,
+  toggleFavoriteFood,
+} from "../../utils/nutritionQuickAccess";
+import { getOpenFoodFactsByBarcode, searchOpenFoodFacts } from "../../utils/openFoodFacts";
 
 const formatMacro = (value) => `${Number(value || 0).toLocaleString("es-CL")} g`;
 const round1 = (value) => Math.round((Number(value) || 0) * 10) / 10;
 const normalize = (value = "") => value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 const makeId = () => typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 
-export default function MealLogger({ entry, saving, onSave }) {
+const hasMealData = (entry) => Array.isArray(entry?.meals)
+  && entry.meals.some((meal) => Array.isArray(meal?.items) && meal.items.length > 0);
+
+export default function MealLogger({ entry, history = [], saving, onSave }) {
   const { profile, saveProfile, saving: profileSaving } = useProfile();
   const customFoods = Array.isArray(profile?.custom_recipes) ? profile.custom_recipes : [];
+  const favoriteFoods = Array.isArray(profile?.favorite_foods) ? profile.favorite_foods : [];
+  const recentFoods = Array.isArray(profile?.recent_foods) ? profile.recent_foods : [];
   const meals = Array.isArray(entry?.meals) ? entry.meals : [];
+
   const [activeMeal, setActiveMeal] = useState(null);
   const [query, setQuery] = useState("");
   const [remoteFoods, setRemoteFoods] = useState([]);
@@ -33,6 +62,14 @@ export default function MealLogger({ entry, saving, onSave }) {
   const [recipeName, setRecipeName] = useState("");
   const [recipeServings, setRecipeServings] = useState(1);
   const [recipeItems, setRecipeItems] = useState([]);
+  const [barcodeOpen, setBarcodeOpen] = useState(false);
+  const [barcodeValue, setBarcodeValue] = useState("");
+  const [barcodeLoading, setBarcodeLoading] = useState(false);
+  const [cameraActive, setCameraActive] = useState(false);
+
+  const videoRef = useRef(null);
+  const cameraStreamRef = useRef(null);
+  const scanFrameRef = useRef(null);
 
   const localFoods = useMemo(() => searchFoodCatalog(query), [query]);
   const customMatches = useMemo(() => {
@@ -40,16 +77,35 @@ export default function MealLogger({ entry, saving, onSave }) {
     if (!q) return customFoods.slice(0, 8);
     return customFoods.filter((food) => normalize(food?.name).includes(q)).slice(0, 8);
   }, [customFoods, query]);
+  const favoriteMatches = useMemo(
+    () => favoriteFoods.filter((food) => matchesFoodQuery(food, query)).slice(0, 10),
+    [favoriteFoods, query]
+  );
+  const recentMatches = useMemo(
+    () => recentFoods.filter((food) => matchesFoodQuery(food, query)).slice(0, 10),
+    [recentFoods, query]
+  );
 
   const combinedFoods = useMemo(() => {
     const seen = new Set();
-    return [...customMatches, ...localFoods, ...remoteFoods].filter((food) => {
-      const key = `${food.name}|${food.id}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    }).slice(0, 14);
-  }, [customMatches, localFoods, remoteFoods]);
+    return [...favoriteMatches, ...recentMatches, ...customMatches, ...localFoods, ...remoteFoods]
+      .filter((food) => {
+        const key = getFoodKey(food);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, 18);
+  }, [favoriteMatches, recentMatches, customMatches, localFoods, remoteFoods]);
+
+  const previousEntries = useMemo(() => {
+    const currentDate = String(entry?.entry_date || "");
+    return [...history]
+      .filter((item) => item?.entry_date && item.entry_date !== currentDate && item.entry_date < currentDate && hasMealData(item))
+      .sort((a, b) => String(b.entry_date).localeCompare(String(a.entry_date)));
+  }, [entry?.entry_date, history]);
+
+  const previousDay = previousEntries[0] || null;
 
   useEffect(() => {
     if (!activeMeal || query.trim().length < 3) {
@@ -77,6 +133,26 @@ export default function MealLogger({ entry, saving, onSave }) {
     setPortions(1);
   }, [query, activeMeal]);
 
+  useEffect(() => () => {
+    if (scanFrameRef.current) cancelAnimationFrame(scanFrameRef.current);
+    cameraStreamRef.current?.getTracks?.().forEach((track) => track.stop());
+  }, []);
+
+  const stopCamera = () => {
+    if (scanFrameRef.current) cancelAnimationFrame(scanFrameRef.current);
+    scanFrameRef.current = null;
+    cameraStreamRef.current?.getTracks?.().forEach((track) => track.stop());
+    cameraStreamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
+    setCameraActive(false);
+  };
+
+  const closePicker = () => {
+    stopCamera();
+    setBarcodeOpen(false);
+    setActiveMeal(null);
+  };
+
   const persistMeals = async (nextMeals) => {
     const totals = sumMeals(nextMeals);
     return onSave({
@@ -89,11 +165,17 @@ export default function MealLogger({ entry, saving, onSave }) {
     });
   };
 
+  const rememberFood = async (food) => {
+    const nextRecent = pushRecentFood(recentFoods, food);
+    await saveProfile({ recent_foods: nextRecent });
+  };
+
   const addSelectedFood = async () => {
     if (!activeMeal || !selectedFood) return;
     const item = createMealItem(selectedFood, portions);
     const nextMeals = upsertMealItem(meals, activeMeal, item);
     const result = await persistMeals(nextMeals);
+    await rememberFood(selectedFood);
     if (result?.error) toast.warning("Comida guardada localmente; se sincronizará después");
     else toast.success(`${selectedFood.name} agregado`);
     setSelectedFood(null);
@@ -107,6 +189,35 @@ export default function MealLogger({ entry, saving, onSave }) {
     if (result?.error) toast.warning("Cambio guardado localmente");
   };
 
+  const toggleFavorite = async (food) => {
+    const wasFavorite = isFavoriteFood(favoriteFoods, food);
+    const next = toggleFavoriteFood(favoriteFoods, food);
+    const result = await saveProfile({ favorite_foods: next });
+    if (result?.error) return toast.warning("No se pudo sincronizar el favorito");
+    toast.success(wasFavorite ? "Quitado de favoritos" : "Agregado a favoritos");
+  };
+
+  const copyPreviousDay = async () => {
+    if (!previousDay) return toast.info("Todavía no hay un día anterior para copiar");
+    const result = await persistMeals(cloneMeals(previousDay.meals));
+    if (result?.error) toast.warning("Día copiado localmente; se sincronizará después");
+    else toast.success(`Copiado desde ${previousDay.entry_date}`);
+  };
+
+  const copyPreviousMeal = async (mealType) => {
+    const sourceEntry = previousEntries.find((candidate) => {
+      const sourceMeal = getMealForType(candidate.meals, mealType);
+      return sourceMeal.items.length > 0;
+    });
+    if (!sourceEntry) return toast.info("No encontramos una comida anterior de este tipo");
+
+    const sourceMeal = getMealForType(sourceEntry.meals, mealType);
+    const nextMeals = replaceMealItems(meals, mealType, sourceMeal.items);
+    const result = await persistMeals(nextMeals);
+    if (result?.error) toast.warning("Comida copiada localmente");
+    else toast.success(`Comida copiada desde ${sourceEntry.entry_date}`);
+  };
+
   const startCustomRecipe = () => {
     setCustomMode(true);
     setRecipeName("");
@@ -115,6 +226,8 @@ export default function MealLogger({ entry, saving, onSave }) {
     setQuery("");
     setSelectedFood(null);
     setPortions(1);
+    setBarcodeOpen(false);
+    stopCamera();
   };
 
   const cancelCustomRecipe = () => {
@@ -191,6 +304,74 @@ export default function MealLogger({ entry, saving, onSave }) {
     setQuery("");
   };
 
+  const lookupBarcode = async (rawCode = barcodeValue) => {
+    const code = String(rawCode || "").replace(/\D/g, "");
+    if (code.length < 8) return toast.info("Ingresa un código de barras válido");
+    setBarcodeLoading(true);
+    const product = await getOpenFoodFactsByBarcode(code);
+    setBarcodeLoading(false);
+    if (!product) return toast.info("No encontramos ese producto en Open Food Facts");
+    setSelectedFood(product);
+    setPortions(1);
+    setBarcodeValue(code);
+    setBarcodeOpen(false);
+    stopCamera();
+    toast.success("Producto encontrado");
+  };
+
+  const startBarcodeCamera = async () => {
+    if (!("BarcodeDetector" in window)) {
+      toast.info("Este navegador no soporta escaneo automático. Puedes escribir el código manualmente.");
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      toast.info("La cámara no está disponible en este navegador");
+      return;
+    }
+
+    try {
+      stopCamera();
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false,
+      });
+      cameraStreamRef.current = stream;
+      setCameraActive(true);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      if (!videoRef.current) return;
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play();
+
+      const supported = await window.BarcodeDetector.getSupportedFormats?.();
+      const preferred = ["ean_13", "ean_8", "upc_a", "upc_e"];
+      const formats = Array.isArray(supported)
+        ? preferred.filter((format) => supported.includes(format))
+        : preferred;
+      const detector = new window.BarcodeDetector(formats.length ? { formats } : undefined);
+
+      const scan = async () => {
+        if (!videoRef.current || !cameraStreamRef.current) return;
+        try {
+          const results = await detector.detect(videoRef.current);
+          const value = results?.[0]?.rawValue;
+          if (value) {
+            setBarcodeValue(value);
+            stopCamera();
+            await lookupBarcode(value);
+            return;
+          }
+        } catch (error) {
+          console.warn("[Treino] escáner de código:", error?.message || error);
+        }
+        scanFrameRef.current = requestAnimationFrame(scan);
+      };
+      scanFrameRef.current = requestAnimationFrame(scan);
+    } catch (error) {
+      stopCamera();
+      toast.warning("No pudimos abrir la cámara. Puedes ingresar el código manualmente.");
+    }
+  };
+
   const preview = selectedFood ? createMealItem(selectedFood, portions) : null;
   const dailyTotals = sumMeals(meals);
 
@@ -198,9 +379,9 @@ export default function MealLogger({ entry, saving, onSave }) {
     <section className="meal-logger-card">
       <header className="meal-logger-card__header">
         <div>
-          <span className="card-kicker">Diario de comidas</span>
+          <span className="card-kicker">Diario de comidas · Treino 1.5</span>
           <h3>Registra lo que comiste, no los macros</h3>
-          <p>Treino calcula automáticamente calorías y macros según alimento y porción.</p>
+          <p>Favoritos, recientes, copiar comidas y código de barras para registrar en menos pasos.</p>
         </div>
         <Utensils size={20} />
       </header>
@@ -210,6 +391,16 @@ export default function MealLogger({ entry, saving, onSave }) {
         <div><span>Proteína</span><strong>{formatMacro(dailyTotals.protein_g)}</strong></div>
         <div><span>Carbos</span><strong>{formatMacro(dailyTotals.carbs_g)}</strong></div>
         <div><span>Grasas</span><strong>{formatMacro(dailyTotals.fat_g)}</strong></div>
+      </div>
+
+      <div className="meal-speed-actions">
+        <div>
+          <span><Star size={14} /> {favoriteFoods.length} favoritos</span>
+          <span><History size={14} /> {recentFoods.length} recientes</span>
+        </div>
+        <button type="button" onClick={copyPreviousDay} disabled={!previousDay || saving}>
+          <Copy size={15} /> {previousDay ? `Copiar día ${previousDay.entry_date}` : "Sin día anterior"}
+        </button>
       </div>
 
       {customFoods.length > 0 && (
@@ -223,6 +414,7 @@ export default function MealLogger({ entry, saving, onSave }) {
         {MEAL_TYPES.map((mealType) => {
           const meal = getMealForType(meals, mealType.id);
           const totals = sumMealItems(meal.items);
+          const hasPreviousMeal = previousEntries.some((candidate) => getMealForType(candidate.meals, mealType.id).items.length > 0);
           return (
             <article key={mealType.id} className="meal-block">
               <div className="meal-block__heading">
@@ -230,7 +422,12 @@ export default function MealLogger({ entry, saving, onSave }) {
                   <span className="meal-block__emoji" aria-hidden="true">{mealType.emoji}</span>
                   <div><strong>{mealType.label}</strong><small>{meal.items.length ? `${totals.calories.toLocaleString("es-CL")} kcal · ${formatMacro(totals.protein_g)} proteína` : "Sin alimentos todavía"}</small></div>
                 </div>
-                <button type="button" className="meal-add-button" onClick={() => { setActiveMeal(mealType.id); setCustomMode(false); }}><Plus size={15} /> Añadir</button>
+                <div className="meal-block__actions">
+                  {hasPreviousMeal && (
+                    <button type="button" className="meal-copy-button" onClick={() => copyPreviousMeal(mealType.id)} title="Copiar la última comida de este tipo"><Copy size={14} /></button>
+                  )}
+                  <button type="button" className="meal-add-button" onClick={() => { setActiveMeal(mealType.id); setCustomMode(false); }}><Plus size={15} /> Añadir</button>
+                </div>
               </div>
 
               {meal.items.length > 0 && (
@@ -256,14 +453,14 @@ export default function MealLogger({ entry, saving, onSave }) {
       </div>
 
       {activeMeal && (
-        <div className="meal-picker-backdrop" role="presentation" onMouseDown={() => setActiveMeal(null)}>
+        <div className="meal-picker-backdrop" role="presentation" onMouseDown={closePicker}>
           <div className="meal-picker" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
             <header>
               <div>
                 <span className="card-kicker">{customMode ? "Crear comida personalizada" : `Añadir a ${MEAL_TYPES.find((meal) => meal.id === activeMeal)?.label}`}</span>
                 <h3>{customMode ? "Construye tu receta" : "¿Qué comiste?"}</h3>
               </div>
-              <button type="button" onClick={() => setActiveMeal(null)} aria-label="Cerrar"><X size={18} /></button>
+              <button type="button" onClick={closePicker} aria-label="Cerrar"><X size={18} /></button>
             </header>
 
             {customMode && (
@@ -273,16 +470,34 @@ export default function MealLogger({ entry, saving, onSave }) {
               </div>
             )}
 
+            {!customMode && (
+              <div className="meal-picker-tools">
+                <button type="button" className={barcodeOpen ? "is-active" : ""} onClick={() => { setBarcodeOpen((value) => !value); stopCamera(); }}><ScanLine size={15} /> Código de barras</button>
+                <button type="button" onClick={startCustomRecipe}><Plus size={15} /> Crear personalizada</button>
+              </div>
+            )}
+
+            {barcodeOpen && !customMode && (
+              <section className="barcode-panel">
+                <div className="barcode-panel__row">
+                  <label><span>Código</span><input inputMode="numeric" value={barcodeValue} onChange={(event) => setBarcodeValue(event.target.value.replace(/\D/g, ""))} placeholder="Ej: 7801234567890" /></label>
+                  <button type="button" onClick={() => lookupBarcode()} disabled={barcodeLoading}>{barcodeLoading ? <Loader2 size={16} className="is-spinning" /> : <Search size={16} />} Buscar</button>
+                  <button type="button" onClick={cameraActive ? stopCamera : startBarcodeCamera}><Camera size={16} /> {cameraActive ? "Cerrar cámara" : "Escanear"}</button>
+                </div>
+                {cameraActive && <video ref={videoRef} className="barcode-camera" playsInline muted />}
+                <small>La cámara usa el detector del navegador cuando está disponible. También puedes escribir el número del código.</small>
+              </section>
+            )}
+
             <label className="meal-search-box">
               <Search size={17} />
-              <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder={customMode ? "Busca un ingrediente…" : "Ej: arroz, pollo, marraqueta, yogur…"} />
+              <input autoFocus={!barcodeOpen} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={customMode ? "Busca un ingrediente…" : "Ej: arroz, pollo, marraqueta, yogur…"} />
               {searchingRemote && <Loader2 size={16} className="is-spinning" />}
             </label>
 
             {!customMode && (
               <div className="meal-search-hint meal-search-hint--actions">
-                <div><span>Mis comidas + Treino + productos envasados</span><small>Los platos caseros marcados “aprox.” pueden variar según receta y cantidad.</small></div>
-                <button type="button" className="custom-recipe-start" onClick={startCustomRecipe}><Plus size={15} /> Crear personalizada</button>
+                <div><span>⭐ Favoritos · 🕘 Recientes · Mis comidas · Catálogo Treino</span><small>Los platos caseros marcados “aprox.” pueden variar según receta y cantidad.</small></div>
               </div>
             )}
 
@@ -295,20 +510,26 @@ export default function MealLogger({ entry, saving, onSave }) {
               </div>
             )}
 
-            <div className="meal-food-results">
+            <div className="meal-food-results meal-food-results--v15">
               {combinedFoods.map((food) => {
                 const sample = createMealItem(food, 1);
-                const selected = selectedFood?.id === food.id;
+                const selected = getFoodKey(selectedFood || {}) === getFoodKey(food);
+                const favorite = isFavoriteFood(favoriteFoods, food);
                 return (
-                  <button key={food.id} type="button" className={selected ? "is-selected" : ""} onClick={() => { setSelectedFood(food); setPortions(1); }}>
-                    <div><strong>{food.name}</strong><span>{food.portionLabel} · {food.portionGrams} g{food.estimated ? " · aprox." : ""}{food.source === "custom_recipe" ? " · Mis comidas" : ""}</span></div>
-                    <div><strong>{sample.calories} kcal</strong><span>P {sample.protein_g} · C {sample.carbs_g} · G {sample.fat_g}</span></div>
-                    {selected && <Check size={17} />}
-                  </button>
+                  <div key={getFoodKey(food)} className={`meal-food-result ${selected ? "is-selected" : ""}`}>
+                    <button type="button" className="meal-food-result__select" onClick={() => { setSelectedFood(food); setPortions(1); }}>
+                      <div><strong>{food.name}</strong><span>{food.portionLabel} · {food.portionGrams} g{food.estimated ? " · aprox." : ""}{food.source === "custom_recipe" ? " · Mis comidas" : ""}{favorite ? " · favorito" : recentFoods.some((item) => getFoodKey(item) === getFoodKey(food)) ? " · reciente" : ""}</span></div>
+                      <div><strong>{sample.calories} kcal</strong><span>P {sample.protein_g} · C {sample.carbs_g} · G {sample.fat_g}</span></div>
+                      {selected && <Check size={17} />}
+                    </button>
+                    {!customMode && (
+                      <button type="button" className={`meal-favorite-button ${favorite ? "is-favorite" : ""}`} onClick={() => toggleFavorite(food)} aria-label={favorite ? `Quitar ${food.name} de favoritos` : `Agregar ${food.name} a favoritos`}><Star size={16} fill={favorite ? "currentColor" : "none"} /></button>
+                    )}
+                  </div>
                 );
               })}
               {!combinedFoods.length && query.trim().length >= 2 && !searchingRemote && (
-                <div className="meal-search-empty">No encontramos ese alimento todavía. {customMode ? "Prueba con otro nombre de ingrediente." : "Puedes crear una comida personalizada."}</div>
+                <div className="meal-search-empty">No encontramos ese alimento todavía. {customMode ? "Prueba con otro nombre de ingrediente." : "Puedes crear una comida personalizada o probar su código de barras."}</div>
               )}
             </div>
 
