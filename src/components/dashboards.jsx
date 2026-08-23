@@ -7,9 +7,11 @@ import {
   Flame,
   Play,
   RotateCcw,
+  Scale,
   Settings2,
   Sparkles,
   TrendingUp,
+  Utensils,
 } from "lucide-react";
 import { useWorkoutContext } from "../contexts/WorkoutContext";
 import {
@@ -105,6 +107,8 @@ export default function Dashboard({
   onManageRoutines,
   onOpenHistory,
   onRepeatWorkout,
+  onQuickNutrition,
+  onQuickBody,
 }) {
   const { workouts, syncing, syncError } = useWorkoutContext();
 
@@ -162,6 +166,30 @@ export default function Dashboard({
           <Flame size={18} />
           <span>{dashboardData.streak}</span>
           <small>días</small>
+        </div>
+      </section>
+
+      <section className="daily-quick-actions" aria-label="Acciones rápidas de hoy">
+        <div className="daily-quick-actions__heading">
+          <div><span className="card-kicker">Treino 1.5</span><h2>Hazlo en un toque</h2></div>
+          <span>Daily Experience</span>
+        </div>
+        <div className="daily-quick-actions__grid">
+          <button type="button" onClick={onStart}>
+            <span><Dumbbell size={19} /></span>
+            <div><strong>Entrenar</strong><small>Iniciar sesión</small></div>
+            <ArrowRight size={16} />
+          </button>
+          <button type="button" onClick={onQuickNutrition}>
+            <span><Utensils size={19} /></span>
+            <div><strong>Comida</strong><small>Registrar rápido</small></div>
+            <ArrowRight size={16} />
+          </button>
+          <button type="button" onClick={onQuickBody}>
+            <span><Scale size={19} /></span>
+            <div><strong>Peso</strong><small>Actualizar cuerpo</small></div>
+            <ArrowRight size={16} />
+          </button>
         </div>
       </section>
 
