@@ -6,6 +6,9 @@ export const MEAL_TYPES = [
 ];
 
 const round1 = (value) => Math.round((Number(value) || 0) * 10) / 10;
+const makeId = () => typeof crypto !== "undefined" && crypto.randomUUID
+  ? crypto.randomUUID()
+  : `${Date.now()}-${Math.random()}`;
 
 export const calculateFoodPortion = (food, grams) => {
   const weight = Math.max(0, Number(grams) || 0);
@@ -23,12 +26,13 @@ export const createMealItem = (food, portions = 1) => {
   const grams = round1((Number(food?.portionGrams) || 100) * quantity);
   const nutrition = calculateFoodPortion(food, grams);
   return {
-    id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+    id: makeId(),
     food_id: food.id,
     name: food.name,
     category: food.category,
     source: food.source || "treino_catalog",
     estimated: Boolean(food.estimated),
+    barcode: food.barcode || null,
     portion_label: food.portionLabel || "porción",
     portions: quantity,
     grams,
@@ -42,7 +46,7 @@ export const createMealItem = (food, portions = 1) => {
 };
 
 export const normalizeMeal = (meal = {}, fallbackType = "lunch") => ({
-  id: meal.id || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`),
+  id: meal.id || makeId(),
   type: meal.type || fallbackType,
   items: Array.isArray(meal.items) ? meal.items : [],
 });
@@ -83,13 +87,39 @@ export const getMealForType = (meals = [], type) =>
 
 export const upsertMealItem = (meals = [], mealType, item) => {
   const exists = meals.some((meal) => meal?.type === mealType);
-  const next = exists
+  return exists
     ? meals.map((meal) => meal?.type === mealType
       ? { ...normalizeMeal(meal, mealType), items: [...(meal.items || []), item] }
       : meal)
     : [...meals, { id: mealType, type: mealType, items: [item] }];
-  return next;
 };
+
+export const cloneMealItems = (items = []) => items.map((item) => ({
+  ...item,
+  id: makeId(),
+}));
+
+export const replaceMealItems = (meals = [], mealType, items = []) => {
+  const clonedItems = cloneMealItems(items);
+  const exists = meals.some((meal) => meal?.type === mealType);
+  return exists
+    ? meals.map((meal) => meal?.type === mealType
+      ? { ...normalizeMeal(meal, mealType), items: clonedItems }
+      : meal)
+    : [...meals, { id: mealType, type: mealType, items: clonedItems }];
+};
+
+export const cloneMeals = (meals = []) => MEAL_TYPES
+  .map((mealType) => {
+    const meal = meals.find((candidate) => candidate?.type === mealType.id);
+    if (!meal?.items?.length) return null;
+    return {
+      id: mealType.id,
+      type: mealType.id,
+      items: cloneMealItems(meal.items),
+    };
+  })
+  .filter(Boolean);
 
 export const removeMealItem = (meals = [], mealType, itemId) => meals.map((meal) =>
   meal?.type === mealType
