@@ -62,6 +62,8 @@ export default function App() {
   const [detailReturnView, setDetailReturnView] = useState(VIEWS.DASHBOARD);
   const [routineReturnView, setRoutineReturnView] = useState(VIEWS.DASHBOARD);
   const [routineInitialType, setRoutineInitialType] = useState("push");
+  const [profileInitialTab, setProfileInitialTab] = useState("overview");
+  const [bodyInitialMode, setBodyInitialMode] = useState("body");
 
   useEffect(() => {
     const draft = getDraftWorkout();
@@ -74,7 +76,19 @@ export default function App() {
     setView(VIEWS.WORKOUT_FORM);
   }, []);
 
-  const navigate = (nextView) => setView(nextView);
+  const navigate = (nextView) => {
+    if (nextView === VIEWS.PROFILE) {
+      setProfileInitialTab("overview");
+      setBodyInitialMode("body");
+    }
+    setView(nextView);
+  };
+
+  const handleOpenBodyNutrition = (mode = "nutrition") => {
+    setProfileInitialTab("body");
+    setBodyInitialMode(mode);
+    setView(VIEWS.PROFILE);
+  };
 
   const handleStart = () => {
     setRepeatWorkout(null);
@@ -221,11 +235,13 @@ export default function App() {
             onManageRoutines={handleManageRoutines}
             onOpenHistory={handleOpenHistory}
             onRepeatWorkout={handleRepeatWorkout}
+            onQuickNutrition={() => handleOpenBodyNutrition("nutrition")}
+            onQuickBody={() => handleOpenBodyNutrition("body")}
           />
         )}
 
         {view === VIEWS.PROGRESS && <ProgressPage />}
-        {view === VIEWS.PROFILE && <ProfileView />}
+        {view === VIEWS.PROFILE && <ProfileView initialTab={profileInitialTab} bodyInitialMode={bodyInitialMode} />}
 
         {view === VIEWS.ROUTINES && (
           <RoutinesManager

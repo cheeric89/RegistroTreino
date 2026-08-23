@@ -1,0 +1,21 @@
+{
+  "name": "Treino — Entrenamiento, nutrición y progreso",
+  "short_name": "Treino",
+  "description": "Registra entrenamientos, progresión, cuerpo y nutrición desde una sola app.",
+  "lang": "es-CL",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#090810",
+  "theme_color": "#6d35b3",
+  "categories": ["fitness", "health", "lifestyle"],
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
