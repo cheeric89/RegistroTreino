@@ -26,6 +26,7 @@ import "./styles/portfolio-coaching-planning.css";
 import "./styles/portfolio-nutrition-body.css";
 import "./styles/portfolio-meal-logger.css";
 import "./styles/portfolio-custom-recipes.css";
+import "./styles/portfolio-daily-experience.css";
 import "./styles/portfolio-routine-launch.css";
 import "./styles/portfolio-workout-editor.css";
 
@@ -48,3 +49,11 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     </ThemeProvider>
   </React.StrictMode>
 );
+
+if ("serviceWorker" in navigator && import.meta.env.PROD) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch((error) => {
+      console.warn("[Treino] Service Worker no disponible:", error?.message || error);
+    });
+  });
+}
