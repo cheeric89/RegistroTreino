@@ -36,12 +36,14 @@ const getInitials = (profile, user) => {
     .join("");
 };
 
-export default function ProfileView({ initialTab = "overview" }) {
+export default function ProfileView({ initialTab = "overview", bodyInitialMode = "body" }) {
   const { user, logout } = useAuth();
   const { profile, loading, saving, saveProfile } = useProfile();
   const [tab, setTab] = useState(initialTab);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ alias: "", weight_kg: "", height_cm: "" });
+
+  useEffect(() => setTab(initialTab), [initialTab]);
 
   useEffect(() => {
     if (!profile) return;
@@ -167,7 +169,7 @@ export default function ProfileView({ initialTab = "overview" }) {
         )}
 
         {tab === "goals" && <GoalsView />}
-        {tab === "body" && <BodyNutritionView />}
+        {tab === "body" && <BodyNutritionView initialMode={bodyInitialMode} />}
         {tab === "prs" && <PRsView />}
         {tab === "settings" && <SettingsView />}
       </div>
