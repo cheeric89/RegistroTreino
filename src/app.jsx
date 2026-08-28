@@ -5,6 +5,7 @@ import { clearDraftWorkout, getDraftWorkout } from "./utils/storage";
 import { routineToTemplateCategories } from "./utils/routines";
 import AuthScreen from "./components/auth/AuthScreen";
 import Dashboard from "./components/dashboards";
+import NutritionPage from "./components/NutritionPage";
 import DaySelector from "./components/dayselector";
 import TemplateSelector from "./components/templateselector";
 import CategorySelector from "./components/categoryselector";
@@ -22,6 +23,7 @@ import BrandLogo from "./components/layout/BrandLogo";
 
 const VIEWS = {
   DASHBOARD: "dashboards",
+  NUTRITION: "nutrition",
   TEMPLATE_SELECTOR: "template_selector",
   DAY_SELECTOR: "day_selector",
   CATEGORY_SELECTOR: "category_selector",
@@ -37,6 +39,7 @@ const VIEWS = {
 
 const CHROME_VIEWS = new Set([
   VIEWS.DASHBOARD,
+  VIEWS.NUTRITION,
   VIEWS.PROGRESS,
   VIEWS.PROFILE,
   VIEWS.HISTORY,
@@ -62,8 +65,7 @@ export default function App() {
   const [detailReturnView, setDetailReturnView] = useState(VIEWS.DASHBOARD);
   const [routineReturnView, setRoutineReturnView] = useState(VIEWS.DASHBOARD);
   const [routineInitialType, setRoutineInitialType] = useState("push");
-  const [profileInitialTab, setProfileInitialTab] = useState("overview");
-  const [bodyInitialMode, setBodyInitialMode] = useState("body");
+  const [progressInitialTab, setProgressInitialTab] = useState("training");
 
   useEffect(() => {
     const draft = getDraftWorkout();
@@ -77,17 +79,20 @@ export default function App() {
   }, []);
 
   const navigate = (nextView) => {
-    if (nextView === VIEWS.PROFILE) {
-      setProfileInitialTab("overview");
-      setBodyInitialMode("body");
-    }
+    if (nextView === VIEWS.PROGRESS) setProgressInitialTab("training");
     setView(nextView);
   };
 
-  const handleOpenBodyNutrition = (mode = "nutrition") => {
-    setProfileInitialTab("body");
-    setBodyInitialMode(mode);
-    setView(VIEWS.PROFILE);
+  const handleOpenNutrition = () => setView(VIEWS.NUTRITION);
+
+  const handleOpenBody = () => {
+    setProgressInitialTab("body");
+    setView(VIEWS.PROGRESS);
+  };
+
+  const handleOpenProgress = () => {
+    setProgressInitialTab("training");
+    setView(VIEWS.PROGRESS);
   };
 
   const handleStart = () => {
@@ -222,7 +227,7 @@ export default function App() {
   return (
     <div className="app-root">
       {showChrome && (
-        <AppHeader currentView={view} onNavigate={navigate} user={user} profile={profile} />
+        <AppHeader currentView={view} onNavigate={navigate} onStart={handleStart} user={user} profile={profile} />
       )}
 
       <main className={`app-main ${showChrome ? "app-main--shell" : "app-main--immersive"}`}>
@@ -231,17 +236,15 @@ export default function App() {
             user={user}
             profile={profile}
             onStart={handleStart}
-            onStartRoutine={handleStartRoutine}
-            onManageRoutines={handleManageRoutines}
-            onOpenHistory={handleOpenHistory}
-            onRepeatWorkout={handleRepeatWorkout}
-            onQuickNutrition={() => handleOpenBodyNutrition("nutrition")}
-            onQuickBody={() => handleOpenBodyNutrition("body")}
+            onQuickNutrition={handleOpenNutrition}
+            onQuickBody={handleOpenBody}
+            onOpenProgress={handleOpenProgress}
           />
         )}
 
-        {view === VIEWS.PROGRESS && <ProgressPage />}
-        {view === VIEWS.PROFILE && <ProfileView initialTab={profileInitialTab} bodyInitialMode={bodyInitialMode} />}
+        {view === VIEWS.NUTRITION && <NutritionPage />}
+        {view === VIEWS.PROGRESS && <ProgressPage initialTab={progressInitialTab} />}
+        {view === VIEWS.PROFILE && <ProfileView />}
 
         {view === VIEWS.ROUTINES && (
           <RoutinesManager
