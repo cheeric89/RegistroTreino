@@ -1,11 +1,11 @@
-import { BarChart3, Home, Settings2, User } from "lucide-react";
+import { BarChart3, Dumbbell, Home, User, Utensils } from "lucide-react";
 import BrandLogo from "./BrandLogo";
 
 const NAV_ITEMS = [
   { id: "dashboards", label: "Inicio", icon: Home },
-  { id: "routines", label: "Rutinas", icon: Settings2 },
+  { id: "workout", label: "Entrenar", icon: Dumbbell, action: true },
+  { id: "nutrition", label: "Nutrición", icon: Utensils },
   { id: "progress", label: "Progreso", icon: BarChart3 },
-  { id: "profile", label: "Perfil", icon: User },
 ];
 
 const getInitials = (profile, user) => {
@@ -18,23 +18,23 @@ const getInitials = (profile, user) => {
     .join("");
 };
 
-export default function AppHeader({ currentView, onNavigate, user, profile }) {
+export default function AppHeader({ currentView, onNavigate, onStart, user, profile }) {
   return (
-    <header className="app-shell-header">
+    <header className="app-shell-header app-shell-header--simple">
       <div className="app-shell-header__inner">
         <button type="button" className="brand-button" onClick={() => onNavigate("dashboards")} aria-label="Ir al inicio">
           <BrandLogo compact />
         </button>
 
         <nav className="desktop-navigation" aria-label="Navegación principal">
-          {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
+          {NAV_ITEMS.map(({ id, label, icon: Icon, action }) => {
             const active = currentView === id;
             return (
               <button
                 key={id}
                 type="button"
                 className={`desktop-navigation__item ${active ? "is-active" : ""}`}
-                onClick={() => onNavigate(id)}
+                onClick={action ? onStart : () => onNavigate(id)}
                 aria-current={active ? "page" : undefined}
               >
                 <Icon size={17} />
@@ -44,12 +44,12 @@ export default function AppHeader({ currentView, onNavigate, user, profile }) {
           })}
         </nav>
 
-        <button type="button" className="header-profile-button" onClick={() => onNavigate("profile")} aria-label="Abrir perfil">
+        <button type="button" className="header-profile-button header-profile-button--simple" onClick={() => onNavigate("profile")} aria-label="Abrir perfil">
           <span className="header-profile-button__avatar">{getInitials(profile, user)}</span>
           <span className="header-profile-button__copy">
-            <strong>{profile?.alias || "Mi perfil"}</strong>
-            <small>{user?.email || "Atleta Treino"}</small>
+            <strong>{profile?.alias || "Perfil"}</strong>
           </span>
+          <User size={16} className="header-profile-button__user-icon" />
         </button>
       </div>
     </header>
