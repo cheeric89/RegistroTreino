@@ -1,28 +1,22 @@
 import { useEffect, useState } from "react";
 import {
-  Activity,
   Edit3,
   LogOut,
   Save,
   Settings,
   Target,
-  Trophy,
   User,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../contexts/AuthContext";
 import { useProfile } from "../../hooks/useProfile";
-import BodyNutritionView from "./BodyNutritionView";
 import GoalsView from "./GoalsView";
-import PRsView from "./PRsView";
 import SettingsView from "./SettingsView";
 
 const TABS = [
   { id: "overview", label: "Perfil", icon: User },
   { id: "goals", label: "Objetivos", icon: Target },
-  { id: "body", label: "Cuerpo & Nutrición", icon: Activity },
-  { id: "prs", label: "Récords", icon: Trophy },
   { id: "settings", label: "Ajustes", icon: Settings },
 ];
 
@@ -36,7 +30,7 @@ const getInitials = (profile, user) => {
     .join("");
 };
 
-export default function ProfileView({ initialTab = "overview", bodyInitialMode = "body" }) {
+export default function ProfileView({ initialTab = "overview" }) {
   const { user, logout } = useAuth();
   const { profile, loading, saving, saveProfile } = useProfile();
   const [tab, setTab] = useState(initialTab);
@@ -81,17 +75,17 @@ export default function ProfileView({ initialTab = "overview", bodyInitialMode =
   const bmi = weight > 0 && height > 0 ? (weight / Math.pow(height / 100, 2)).toFixed(1) : "—";
 
   return (
-    <div className="page-shell profile-page">
-      <header className="page-heading profile-heading">
+    <div className="page-shell profile-page simplified-section-page">
+      <header className="simplified-page-heading profile-heading--simple">
         <div>
-          <span className="page-eyebrow">Centro personal</span>
-          <h1>Tu cuenta</h1>
-          <p>Administra tus datos, objetivos, cuerpo, nutrición, récords y preferencias de entrenamiento.</p>
+          <span>Tu cuenta</span>
+          <h1>Perfil</h1>
+          <p>Datos personales, objetivos y preferencias.</p>
         </div>
         <div className="profile-heading__avatar" aria-hidden="true">{getInitials(profile, user)}</div>
       </header>
 
-      <div className="profile-tabs" role="tablist" aria-label="Secciones del perfil">
+      <div className="profile-tabs simplified-tabs" role="tablist" aria-label="Secciones del perfil">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -112,12 +106,12 @@ export default function ProfileView({ initialTab = "overview", bodyInitialMode =
           loading ? (
             <div className="profile-loading-card" aria-label="Cargando perfil"><span /><span /><span /></div>
           ) : !editing ? (
-            <div className="profile-overview-grid">
+            <div className="profile-overview-grid profile-overview-grid--simple">
               <section className="profile-identity-card">
                 <div className="profile-identity-card__top">
                   <div className="profile-avatar-large">{getInitials(profile, user)}</div>
                   <div>
-                    <span className="card-kicker">Atleta Treino</span>
+                    <span className="card-kicker">Atleta</span>
                     <h2>{profile?.alias || "Atleta"}</h2>
                     <p>{user?.email}</p>
                   </div>
@@ -130,18 +124,17 @@ export default function ProfileView({ initialTab = "overview", bodyInitialMode =
                 </div>
               </section>
 
-              <aside className="profile-actions-card">
-                <span className="card-kicker">Datos personales</span>
-                <h2>Mantén tu perfil actualizado</h2>
-                <p>Estos datos alimentan tus métricas, objetivos y estimaciones opcionales de Nutrition & Body.</p>
-                <button type="button" className="primary-action-button" onClick={() => setEditing(true)}><Edit3 size={17} /> Editar información</button>
+              <aside className="profile-actions-card profile-actions-card--simple">
+                <h2>Tu información</h2>
+                <p>Mantén tus datos actualizados para mejorar cálculos y objetivos.</p>
+                <button type="button" className="primary-action-button" onClick={() => setEditing(true)}><Edit3 size={17} /> Editar perfil</button>
                 <button type="button" className="profile-logout-button" onClick={handleLogout}><LogOut size={17} /> Cerrar sesión</button>
               </aside>
             </div>
           ) : (
             <form className="profile-edit-card" onSubmit={handleSubmit}>
               <div className="section-heading section-heading--compact">
-                <div><span className="card-kicker">Editar perfil</span><h2>Información personal</h2></div>
+                <div><span className="card-kicker">Editar</span><h2>Información personal</h2></div>
                 <Edit3 size={20} />
               </div>
 
@@ -169,8 +162,6 @@ export default function ProfileView({ initialTab = "overview", bodyInitialMode =
         )}
 
         {tab === "goals" && <GoalsView />}
-        {tab === "body" && <BodyNutritionView initialMode={bodyInitialMode} />}
-        {tab === "prs" && <PRsView />}
         {tab === "settings" && <SettingsView />}
       </div>
     </div>
