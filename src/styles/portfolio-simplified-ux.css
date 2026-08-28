@@ -1,0 +1,331 @@
+.simplified-dashboard,
+.simplified-section-page {
+  width: min(100%, 980px);
+}
+
+.today-header,
+.simplified-page-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 12px 2px 26px;
+}
+
+.today-header > div > span,
+.simplified-page-heading > div > span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--text-muted, #9ca3af);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.today-header h1,
+.simplified-page-heading h1 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 3rem);
+  letter-spacing: -0.045em;
+  line-height: 1;
+}
+
+.today-header p,
+.simplified-page-heading p {
+  margin: 9px 0 0;
+  color: var(--text-muted, #9ca3af);
+  font-size: 0.98rem;
+}
+
+.today-header > small {
+  margin-top: 5px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.09);
+  color: #86efac;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.today-header > small.is-offline {
+  background: rgba(245, 158, 11, 0.1);
+  color: #fbbf24;
+}
+
+.today-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.today-action {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 15px;
+  min-height: 104px;
+  padding: 18px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.025);
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.today-action:hover {
+  border-color: rgba(168, 85, 247, 0.2);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.today-action__icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 13px;
+  background: rgba(168, 85, 247, 0.11);
+  color: #c084fc;
+}
+
+.today-action__body {
+  min-width: 0;
+}
+
+.today-action__body > span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text-muted, #9ca3af);
+  font-size: 0.79rem;
+  font-weight: 700;
+}
+
+.today-action__body > strong {
+  display: block;
+  overflow: hidden;
+  color: var(--text-primary, #f8fafc);
+  font-size: 1.08rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.today-action__body > small {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-muted, #9ca3af);
+}
+
+.today-action > button,
+.today-week button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 11px;
+  background: rgba(168, 85, 247, 0.12);
+  color: #d8b4fe;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.today-action--training > button {
+  background: linear-gradient(135deg, #7c3aed, #9333ea);
+  color: white;
+}
+
+.today-week {
+  margin-top: 18px;
+  padding: 18px 2px 8px;
+}
+
+.today-week__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.today-week__top > div > span {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--text-muted, #9ca3af);
+  font-size: 0.8rem;
+}
+
+.today-week__top > div > strong {
+  font-size: 1rem;
+}
+
+.today-week__track {
+  height: 5px;
+  margin-top: 13px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.today-week__track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7c3aed, #c084fc);
+}
+
+.simplified-page-heading__icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 14px;
+  background: rgba(168, 85, 247, 0.1);
+  color: #c084fc;
+}
+
+.simplified-tabs {
+  display: inline-flex;
+  gap: 5px;
+  max-width: 100%;
+  margin: 0 0 22px;
+  padding: 4px;
+  overflow-x: auto;
+  border: 1px solid rgba(255, 255, 255, 0.065);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.simplified-tabs button,
+.profile-tabs.simplified-tabs .profile-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-muted, #9ca3af);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 750;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.simplified-tabs button.is-active,
+.profile-tabs.simplified-tabs .profile-tab.is-active {
+  background: rgba(168, 85, 247, 0.12);
+  color: #e9d5ff;
+  box-shadow: none;
+}
+
+.nutrition-page .body-nutrition-hero,
+.nutrition-page .body-nutrition-tabs,
+.progress-body-view .body-nutrition-hero,
+.progress-body-view .body-nutrition-tabs {
+  display: none;
+}
+
+.nutrition-page .body-nutrition-view,
+.progress-body-view .body-nutrition-view {
+  gap: 0;
+}
+
+.nutrition-page .nutrition-section-stack,
+.progress-body-view .body-section-stack {
+  margin-top: 0;
+}
+
+.nutrition-page .nutrition-today-card,
+.nutrition-page .meal-logger-card,
+.nutrition-page .nutrition-target-card,
+.progress-body-view .body-weight-card,
+.progress-body-view .body-goal-card,
+.progress-body-view .body-entry-card,
+.progress-body-view .body-history-card {
+  box-shadow: none;
+}
+
+.profile-overview-grid--simple,
+.profile-page .profile-content {
+  margin-top: 0;
+}
+
+.profile-actions-card--simple .card-kicker {
+  display: none;
+}
+
+.app-shell-header--simple .desktop-navigation {
+  gap: 3px;
+}
+
+.header-profile-button--simple .header-profile-button__copy small {
+  display: none;
+}
+
+.header-profile-button__user-icon {
+  color: var(--text-muted, #9ca3af);
+}
+
+@media (max-width: 720px) {
+  .simplified-dashboard,
+  .simplified-section-page {
+    width: 100%;
+  }
+
+  .today-header,
+  .simplified-page-heading {
+    padding-top: 4px;
+    padding-bottom: 20px;
+  }
+
+  .today-header h1,
+  .simplified-page-heading h1 {
+    font-size: 2.15rem;
+  }
+
+  .today-header > small {
+    padding: 6px 8px;
+    font-size: 0.7rem;
+  }
+
+  .today-action {
+    grid-template-columns: auto minmax(0, 1fr);
+    min-height: 0;
+    padding: 16px;
+  }
+
+  .today-action > button {
+    grid-column: 2;
+    justify-self: start;
+    min-height: 34px;
+    margin-top: 2px;
+  }
+
+  .today-action__body > strong {
+    white-space: normal;
+  }
+
+  .today-week__top {
+    align-items: flex-end;
+  }
+
+  .simplified-tabs {
+    display: flex;
+    width: 100%;
+  }
+
+  .simplified-tabs button,
+  .profile-tabs.simplified-tabs .profile-tab {
+    flex: 1 0 auto;
+    justify-content: center;
+  }
+
+  .nutrition-page .nutrition-today-card,
+  .nutrition-page .meal-logger-card,
+  .nutrition-page .nutrition-target-card,
+  .progress-body-view .body-entry-card,
+  .progress-body-view .body-history-card {
+    border-radius: 16px;
+  }
+}
