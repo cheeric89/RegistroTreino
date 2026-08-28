@@ -1,26 +1,12 @@
 import { useMemo } from "react";
-import {
-  ArrowRight,
-  CalendarDays,
-  Clock3,
-  Dumbbell,
-  Flame,
-  Play,
-  RotateCcw,
-  Scale,
-  Settings2,
-  Sparkles,
-  TrendingUp,
-  Utensils,
-} from "lucide-react";
+import { ArrowRight, BarChart3, Dumbbell, Scale, Utensils } from "lucide-react";
 import { useWorkoutContext } from "../contexts/WorkoutContext";
+import { useBodyNutrition } from "../hooks/useBodyNutrition";
 import {
-  HISTORY_GROUPS,
-  getBestExerciseMarks,
-  groupWorkouts,
-} from "../utils/workoutHistory";
-import NutritionBodyDashboard from "./NutritionBodyDashboard";
-import SmartDashboard from "./SmartDashboard";
+  getNutritionTargets,
+  getTodayNutrition,
+  getWeightAnalytics,
+} from "../utils/nutritionBodyAnalytics";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -34,287 +20,99 @@ const getGreeting = () => {
 const getDisplayName = (profile, user) =>
   profile?.alias?.trim() || user?.email?.split("@")[0] || "Atleta";
 
-const getWorkoutTimestamp = (workout) => {
-  if (Number.isFinite(Number(workout?.timestamp))) return Number(workout.timestamp);
-  return 0;
-};
+const getWorkoutTimestamp = (workout) => Number(workout?.timestamp) || 0;
 
-const getWorkoutVolume = (workout) => {
-  if (Number.isFinite(Number(workout?.volume))) return Number(workout.volume);
-
-  return (workout?.exercises || []).reduce(
-    (total, category) =>
-      total +
-      (category?.exercises || []).reduce(
-        (categoryTotal, exercise) =>
-          categoryTotal +
-          (exercise?.sets || []).reduce(
-            (setTotal, set) =>
-              setTotal + (Number(set?.weight) || 0) * (Number(set?.reps) || 0),
-            0
-          ),
-        0
-      ),
-    0
-  );
-};
-
-const getWorkoutDuration = (workout) => Number(workout?.duration) || 0;
-
-const formatDuration = (seconds) => {
-  const totalMinutes = Math.round(seconds / 60);
-  if (totalMinutes < 60) return `${totalMinutes} min`;
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return minutes ? `${hours} h ${minutes} min` : `${hours} h`;
-};
-
-const getCategories = (workout) => {
-  if (Array.isArray(workout?.categories) && workout.categories.length) return workout.categories;
-  return (workout?.exercises || []).map((category) => category?.name).filter(Boolean);
-};
-
-const startOfLocalDay = (value) => {
-  const date = new Date(value);
-  date.setHours(0, 0, 0, 0);
-  return date.getTime();
-};
-
-const calculateStreak = (workouts) => {
-  const days = new Set(
-    workouts.map(getWorkoutTimestamp).filter(Boolean).map(startOfLocalDay)
-  );
-
-  if (!days.size) return 0;
-
-  const today = startOfLocalDay(Date.now());
-  let cursor = days.has(today) ? today : today - DAY_MS;
-  let streak = 0;
-
-  while (days.has(cursor)) {
-    streak += 1;
-    cursor -= DAY_MS;
-  }
-
-  return streak;
+const isToday = (timestamp) => {
+  if (!timestamp) return false;
+  const date = new Date(timestamp);
+  const today = new Date();
+  return date.getFullYear() === today.getFullYear()
+    && date.getMonth() === today.getMonth()
+    && date.getDate() === today.getDate();
 };
 
 export default function Dashboard({
   user,
   profile,
   onStart,
-  onStartRoutine,
-  onManageRoutines,
-  onOpenHistory,
-  onRepeatWorkout,
   onQuickNutrition,
   onQuickBody,
+  onOpenProgress,
 }) {
   const { workouts, syncing, syncError } = useWorkoutContext();
+  const { bodyEntries, nutritionEntries, loading: bodyLoading, syncError: bodySyncError } = useBodyNutrition();
 
-  const dashboardData = useMemo(() => {
-    const sorted = [...workouts].sort(
-      (a, b) => getWorkoutTimestamp(b) - getWorkoutTimestamp(a)
-    );
+  const training = useMemo(() => {
+    const sorted = [...workouts].sort((a, b) => getWorkoutTimestamp(b) - getWorkoutTimestamp(a));
     const sevenDaysAgo = Date.now() - 7 * DAY_MS;
     const week = sorted.filter((workout) => getWorkoutTimestamp(workout) >= sevenDaysAgo);
-    const grouped = groupWorkouts(sorted);
-
-    const historyGroups = HISTORY_GROUPS.map((group) => {
-      const sessions = grouped[group.id] || [];
-      const bestMark = getBestExerciseMarks(sessions, 1)[0] || null;
-      return {
-        ...group,
-        count: sessions.length,
-        latest: sessions[0] || null,
-        bestMark,
-      };
-    });
-
-    return {
-      latest: sorted[0] || null,
-      sessions: week.length,
-      volume: week.reduce((total, workout) => total + getWorkoutVolume(workout), 0),
-      duration: week.reduce((total, workout) => total + getWorkoutDuration(workout), 0),
-      streak: calculateStreak(sorted),
-      historyGroups,
-      totalWorkouts: sorted.length,
-    };
+    const todayWorkout = sorted.find((workout) => isToday(getWorkoutTimestamp(workout))) || null;
+    return { week, todayWorkout };
   }, [workouts]);
 
-  const displayName = getDisplayName(profile, user);
-  const latestCategories = getCategories(dashboardData.latest);
+  const todayNutrition = getTodayNutrition(nutritionEntries);
+  const targets = getNutritionTargets(profile);
+  const weight = getWeightAnalytics(bodyEntries, profile?.target_weight_kg);
+  const currentWeight = weight.latest?.weight_kg ?? profile?.weight_kg ?? null;
+  const weeklyGoal = Math.max(0, Number(profile?.weekly_training_goal) || 0);
+  const weeklyPercent = weeklyGoal > 0 ? Math.min(100, Math.round((training.week.length / weeklyGoal) * 100)) : 0;
+  const syncBusy = syncing || bodyLoading;
+  const offline = Boolean(syncError || bodySyncError);
 
   return (
-    <div className="dashboard-screen page-shell">
-      <section className="dashboard-intro">
+    <div className="page-shell simplified-dashboard">
+      <header className="today-header">
         <div>
-          <p className="dashboard-greeting">{getGreeting()}, <strong>{displayName}</strong></p>
-          <h1>Haz que cada sesión sume.</h1>
-          <p className="dashboard-intro__copy">
-            Registra lo que levantas, recupera tus marcas anteriores y mantén visible tu progreso.
-          </p>
-          <p className="dashboard-sync-state" role="status">
-            {syncing
-              ? "Sincronizando entrenamientos…"
-              : syncError
-                ? "Modo offline · tus cambios se sincronizarán al reconectar"
-                : "Historial sincronizado entre tus dispositivos"}
-          </p>
+          <span>{getGreeting()}</span>
+          <h1>{getDisplayName(profile, user)}</h1>
+          <p>Esto es lo importante de hoy.</p>
         </div>
-        <div className="dashboard-streak" aria-label={`${dashboardData.streak} días de racha`}>
-          <Flame size={18} />
-          <span>{dashboardData.streak}</span>
-          <small>días</small>
-        </div>
-      </section>
+        <small className={offline ? "is-offline" : ""}>
+          {syncBusy ? "Sincronizando…" : offline ? "Offline · guardaremos tus cambios" : "Al día"}
+        </small>
+      </header>
 
-      <section className="daily-quick-actions" aria-label="Acciones rápidas de hoy">
-        <div className="daily-quick-actions__heading">
-          <div><span className="card-kicker">Treino 1.5</span><h2>Hazlo en un toque</h2></div>
-          <span>Daily Experience</span>
-        </div>
-        <div className="daily-quick-actions__grid">
-          <button type="button" onClick={onStart}>
-            <span><Dumbbell size={19} /></span>
-            <div><strong>Entrenar</strong><small>Iniciar sesión</small></div>
-            <ArrowRight size={16} />
-          </button>
-          <button type="button" onClick={onQuickNutrition}>
-            <span><Utensils size={19} /></span>
-            <div><strong>Comida</strong><small>Registrar rápido</small></div>
-            <ArrowRight size={16} />
-          </button>
-          <button type="button" onClick={onQuickBody}>
-            <span><Scale size={19} /></span>
-            <div><strong>Peso</strong><small>Actualizar cuerpo</small></div>
-            <ArrowRight size={16} />
-          </button>
-        </div>
-      </section>
-
-      <section className="dashboard-primary-grid" aria-label="Acciones principales">
-        <article className="start-workout-card">
-          <div className="start-workout-card__glow" />
-          <div className="start-workout-card__icon" aria-hidden="true"><Dumbbell size={26} /></div>
-          <div className="start-workout-card__content">
-            <span className="card-kicker">Entrenamiento</span>
-            <h2>Empieza una nueva sesión</h2>
-            <p>Abre cualquiera de tus rutinas guardadas o crea una sesión libre.</p>
+      <section className="today-stack" aria-label="Resumen de hoy">
+        <article className="today-action today-action--training">
+          <div className="today-action__icon"><Dumbbell size={21} /></div>
+          <div className="today-action__body">
+            <span>Entrenamiento</span>
+            <strong>{training.todayWorkout ? "Entrenamiento completado" : "¿Entrenamos hoy?"}</strong>
+            <small>{training.todayWorkout ? training.todayWorkout.day || "Sesión registrada" : `${training.week.length}${weeklyGoal ? ` / ${weeklyGoal}` : ""} sesiones esta semana`}</small>
           </div>
-          <button type="button" className="primary-action-button" onClick={onStart}>
-            <Play size={18} fill="currentColor" />
-            Iniciar entrenamiento
-            <ArrowRight size={18} />
-          </button>
-          <button type="button" className="secondary-action-button dashboard-routines-button" onClick={() => onManageRoutines?.("push")}>
-            <Settings2 size={16} />
-            Editar mis rutinas
-          </button>
+          <button type="button" onClick={onStart}>{training.todayWorkout ? "Otra sesión" : "Empezar"}<ArrowRight size={16} /></button>
         </article>
 
-        <aside className="week-summary-card">
-          <div className="section-heading section-heading--compact">
-            <div>
-              <span className="card-kicker">Últimos 7 días</span>
-              <h2>Tu semana</h2>
-            </div>
-            <TrendingUp size={20} />
+        <article className="today-action today-action--nutrition">
+          <div className="today-action__icon"><Utensils size={21} /></div>
+          <div className="today-action__body">
+            <span>Nutrición</span>
+            <strong>{Number(todayNutrition.calories || 0).toLocaleString("es-CL")} {targets.calories ? `/ ${targets.calories.toLocaleString("es-CL")} kcal` : "kcal"}</strong>
+            <small>{Number(todayNutrition.protein_g || 0).toLocaleString("es-CL")} {targets.protein ? `/ ${targets.protein.toLocaleString("es-CL")}` : ""} g proteína</small>
           </div>
+          <button type="button" onClick={onQuickNutrition}>+ Comida</button>
+        </article>
 
-          <div className="week-summary-grid">
-            <div className="metric-tile">
-              <CalendarDays size={17} />
-              <strong>{dashboardData.sessions}</strong>
-              <span>sesiones</span>
-            </div>
-            <div className="metric-tile">
-              <Dumbbell size={17} />
-              <strong>{Math.round(dashboardData.volume).toLocaleString("es-CL")}</strong>
-              <span>kg de volumen</span>
-            </div>
-            <div className="metric-tile metric-tile--wide">
-              <Clock3 size={17} />
-              <strong>{formatDuration(dashboardData.duration)}</strong>
-              <span>tiempo entrenado</span>
-            </div>
+        <article className="today-action today-action--body">
+          <div className="today-action__icon"><Scale size={21} /></div>
+          <div className="today-action__body">
+            <span>Peso</span>
+            <strong>{currentWeight != null ? `${Number(currentWeight).toLocaleString("es-CL")} kg` : "Sin registro"}</strong>
+            <small>{weight.delta30 == null ? "Registra tu peso cuando quieras" : `30 días: ${weight.delta30 > 0 ? "+" : ""}${weight.delta30.toLocaleString("es-CL")} kg`}</small>
           </div>
-        </aside>
+          <button type="button" onClick={onQuickBody}>Registrar</button>
+        </article>
       </section>
 
-      <SmartDashboard
-        userId={user?.id}
-        profile={profile}
-        onStart={onStart}
-        onStartRoutine={onStartRoutine}
-        onManageRoutines={onManageRoutines}
-      />
-
-      <NutritionBodyDashboard profile={profile} />
-
-      {dashboardData.latest && (
-        <section className="continue-card">
-          <div className="continue-card__icon" aria-hidden="true"><RotateCcw size={21} /></div>
-          <div className="continue-card__body">
-            <span className="card-kicker">Continúa progresando</span>
-            <h2>Repite tu última sesión: {dashboardData.latest.day || "Entrenamiento"}</h2>
-            <div className="continue-card__meta">
-              <span>{dashboardData.latest.date || "Fecha no disponible"}</span>
-              {latestCategories.length > 0 && <span>{latestCategories.slice(0, 3).join(" · ")}</span>}
-            </div>
-          </div>
-          <button type="button" className="secondary-action-button" onClick={() => onRepeatWorkout(dashboardData.latest)}>
-            Repetir
-            <ArrowRight size={17} />
-          </button>
-        </section>
-      )}
-
-      <section className="history-overview-section">
-        <div className="section-heading">
+      <section className="today-week">
+        <div className="today-week__top">
           <div>
-            <span className="card-kicker">Tu historial</span>
-            <h2>Push / Pull / Legs</h2>
+            <span>Esta semana</span>
+            <strong>{training.week.length}{weeklyGoal ? ` / ${weeklyGoal}` : ""} entrenamientos</strong>
           </div>
-          <Sparkles size={20} />
+          <button type="button" onClick={onOpenProgress}>Ver progreso <BarChart3 size={16} /></button>
         </div>
-
-        {dashboardData.totalWorkouts > 0 ? (
-          <div className="history-overview-grid">
-            {dashboardData.historyGroups.map((group) => (
-              <button
-                key={group.id}
-                type="button"
-                className={`history-overview-card history-overview-card--${group.id}`}
-                onClick={() => onOpenHistory?.(group.id)}
-              >
-                <div className="history-overview-card__topline">
-                  <span>{group.label}</span>
-                  <strong>{group.count}</strong>
-                </div>
-                <p>{group.subtitle}</p>
-                <div className="history-overview-card__footer">
-                  <div>
-                    <small>Última sesión</small>
-                    <span>{group.latest?.date || "Sin registros"}</span>
-                  </div>
-                  <div>
-                    <small>Marca destacada</small>
-                    <span>{group.bestMark ? `${group.bestMark.weight || 0} kg × ${group.bestMark.reps || 0}` : "—"}</span>
-                  </div>
-                  <ArrowRight size={17} />
-                </div>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="dashboard-empty-state">
-            <div className="dashboard-empty-state__icon"><Dumbbell size={24} /></div>
-            <h3>Tu historial empieza aquí</h3>
-            <p>Completa tu primera sesión para organizarla automáticamente y recuperar tus marcas.</p>
-            <button type="button" className="secondary-action-button" onClick={onStart}>Crear primera sesión</button>
-          </div>
-        )}
+        {weeklyGoal > 0 && <div className="today-week__track"><i style={{ width: `${weeklyPercent}%` }} /></div>}
       </section>
     </div>
   );
