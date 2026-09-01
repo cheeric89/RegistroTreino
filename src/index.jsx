@@ -5,6 +5,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { AuthProvider } from "./contexts/AuthContext";
 import { WorkoutProvider } from "./contexts/WorkoutContext";
 import { RoutineProvider } from "./contexts/RoutineContext";
+import "./utils/barcodeDetectorPolyfill";
 import App from "./app";
 import "./styles.css";
 import "./styles/portfolio-core.css";
