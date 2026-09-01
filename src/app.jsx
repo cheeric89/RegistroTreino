@@ -6,6 +6,7 @@ import { routineToTemplateCategories } from "./utils/routines";
 import AuthScreen from "./components/auth/AuthScreen";
 import Dashboard from "./components/dashboards";
 import NutritionPage from "./components/NutritionPage";
+import WelcomeSetup from "./components/WelcomeSetup";
 import DaySelector from "./components/dayselector";
 import TemplateSelector from "./components/templateselector";
 import CategorySelector from "./components/categoryselector";
@@ -51,7 +52,12 @@ const isSavedRoutine = (routine) =>
 
 export default function App() {
   const { user, loading } = useAuth();
-  const { profile } = useProfile();
+  const {
+    profile,
+    loading: profileLoading,
+    saving: profileSaving,
+    saveProfile,
+  } = useProfile();
   const [view, setView] = useState(VIEWS.DASHBOARD);
   const [selectedDay, setSelectedDay] = useState(null);
   const [selectedCategories, setSelectedCategories] = useState([]);
@@ -326,6 +332,14 @@ export default function App() {
       {showChrome && (
         <BottomNavigation currentView={view} onNavigate={navigate} onStart={handleStart} />
       )}
+
+      <WelcomeSetup
+        user={user}
+        profile={profile}
+        loading={profileLoading}
+        saving={profileSaving}
+        onSave={saveProfile}
+      />
     </div>
   );
 }
