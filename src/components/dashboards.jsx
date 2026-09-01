@@ -1,8 +1,9 @@
 import { useMemo } from "react";
-import { ArrowRight, BarChart3, Dumbbell, Scale, Utensils } from "lucide-react";
+import { ArrowRight, BarChart3, Check, Dumbbell, Scale, Utensils } from "lucide-react";
 import { useWorkoutContext } from "../contexts/WorkoutContext";
 import { useBodyNutrition } from "../hooks/useBodyNutrition";
 import {
+  getLocalDateKey,
   getNutritionTargets,
   getTodayNutrition,
   getWeightAnalytics,
@@ -54,8 +55,17 @@ export default function Dashboard({
   const targets = getNutritionTargets(profile);
   const weight = getWeightAnalytics(bodyEntries, profile?.target_weight_kg);
   const currentWeight = weight.latest?.weight_kg ?? profile?.weight_kg ?? null;
+  const todayBody = bodyEntries.find((entry) => entry?.entry_date === getLocalDateKey()) || null;
+  const hasNutritionToday = Number(todayNutrition.calories || 0) > 0
+    || Number(todayNutrition.protein_g || 0) > 0
+    || (Array.isArray(todayNutrition.meals) && todayNutrition.meals.some((meal) => meal?.items?.length));
+  const hasWeightToday = Number(todayBody?.weight_kg) > 0;
+  const nutritionGoalReached = targets.calories > 0
+    && Number(todayNutrition.calories || 0) >= targets.calories;
   const weeklyGoal = Math.max(0, Number(profile?.weekly_training_goal) || 0);
   const weeklyPercent = weeklyGoal > 0 ? Math.min(100, Math.round((training.week.length / weeklyGoal) * 100)) : 0;
+  const weeklyGoalReached = weeklyGoal > 0 && training.week.length >= weeklyGoal;
+  const todayDone = [Boolean(training.todayWorkout), hasNutritionToday, hasWeightToday].filter(Boolean).length;
   const syncBusy = syncing || bodyLoading;
   const offline = Boolean(syncError || bodySyncError);
 
@@ -73,42 +83,53 @@ export default function Dashboard({
       </header>
 
       <section className="today-stack" aria-label="Resumen de hoy">
-        <article className="today-action today-action--training">
-          <div className="today-action__icon"><Dumbbell size={21} /></div>
+        <article className={`today-action today-action--training ${training.todayWorkout ? "is-done" : ""}`}>
+          <div className="today-action__icon">{training.todayWorkout ? <Check size={21} /> : <Dumbbell size={21} />}</div>
           <div className="today-action__body">
             <span>Entrenamiento</span>
-            <strong>{training.todayWorkout ? "Entrenamiento completado" : "¿Entrenamos hoy?"}</strong>
+            <strong>{training.todayWorkout ? "Listo por hoy" : "¿Entrenamos hoy?"}</strong>
             <small>{training.todayWorkout ? training.todayWorkout.day || "Sesión registrada" : `${training.week.length}${weeklyGoal ? ` / ${weeklyGoal}` : ""} sesiones esta semana`}</small>
           </div>
-          <button type="button" onClick={onStart}>{training.todayWorkout ? "Otra sesión" : "Empezar"}<ArrowRight size={16} /></button>
+          <button type="button" onClick={training.todayWorkout ? onOpenProgress : onStart}>
+            {training.todayWorkout ? "Ver progreso" : "Empezar"}<ArrowRight size={16} />
+          </button>
         </article>
 
-        <article className="today-action today-action--nutrition">
+        <article className={`today-action today-action--nutrition ${hasNutritionToday ? "has-data" : ""}`}>
           <div className="today-action__icon"><Utensils size={21} /></div>
           <div className="today-action__body">
             <span>Nutrición</span>
-            <strong>{Number(todayNutrition.calories || 0).toLocaleString("es-CL")} {targets.calories ? `/ ${targets.calories.toLocaleString("es-CL")} kcal` : "kcal"}</strong>
-            <small>{Number(todayNutrition.protein_g || 0).toLocaleString("es-CL")} {targets.protein ? `/ ${targets.protein.toLocaleString("es-CL")}` : ""} g proteína</small>
+            <strong>{hasNutritionToday
+              ? `${Number(todayNutrition.calories || 0).toLocaleString("es-CL")} ${targets.calories ? `/ ${targets.calories.toLocaleString("es-CL")} kcal` : "kcal"}`
+              : "Aún no registras comidas"}</strong>
+            <small>{hasNutritionToday
+              ? `${Number(todayNutrition.protein_g || 0).toLocaleString("es-CL")} ${targets.protein ? `/ ${targets.protein.toLocaleString("es-CL")}` : ""} g proteína${nutritionGoalReached ? " · objetivo kcal alcanzado" : ""}`
+              : "Añade tu primera comida del día"}</small>
           </div>
-          <button type="button" onClick={onQuickNutrition}>+ Comida</button>
+          <button type="button" onClick={onQuickNutrition}>{hasNutritionToday ? "+ Comida" : "Registrar"}</button>
         </article>
 
-        <article className="today-action today-action--body">
-          <div className="today-action__icon"><Scale size={21} /></div>
+        <article className={`today-action today-action--body ${hasWeightToday ? "is-done" : ""}`}>
+          <div className="today-action__icon">{hasWeightToday ? <Check size={21} /> : <Scale size={21} />}</div>
           <div className="today-action__body">
             <span>Peso</span>
-            <strong>{currentWeight != null ? `${Number(currentWeight).toLocaleString("es-CL")} kg` : "Sin registro"}</strong>
-            <small>{weight.delta30 == null ? "Registra tu peso cuando quieras" : `30 días: ${weight.delta30 > 0 ? "+" : ""}${weight.delta30.toLocaleString("es-CL")} kg`}</small>
+            <strong>{currentWeight != null ? `${Number(currentWeight).toLocaleString("es-CL")} kg` : "Aún sin peso"}</strong>
+            <small>{hasWeightToday
+              ? "Registrado hoy"
+              : weight.delta30 == null
+                ? "Regístralo cuando quieras empezar la tendencia"
+                : `30 días: ${weight.delta30 > 0 ? "+" : ""}${weight.delta30.toLocaleString("es-CL")} kg`}</small>
           </div>
-          <button type="button" onClick={onQuickBody}>Registrar</button>
+          <button type="button" onClick={onQuickBody}>{hasWeightToday ? "Ver cuerpo" : currentWeight != null ? "Actualizar" : "Añadir peso"}</button>
         </article>
       </section>
 
       <section className="today-week">
         <div className="today-week__top">
           <div>
-            <span>Esta semana</span>
+            <span>{weeklyGoalReached ? "Objetivo semanal cumplido" : "Esta semana"}</span>
             <strong>{training.week.length}{weeklyGoal ? ` / ${weeklyGoal}` : ""} entrenamientos</strong>
+            <small className="today-week__status">{todayDone} de 3 acciones con datos hoy</small>
           </div>
           <button type="button" onClick={onOpenProgress}>Ver progreso <BarChart3 size={16} /></button>
         </div>
