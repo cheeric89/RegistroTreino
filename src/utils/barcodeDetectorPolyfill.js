@@ -9,6 +9,10 @@ const FORMAT_READERS = {
   upc_e: "upc_e_reader",
 };
 
+const CONFIRMATIONS_REQUIRED = 3;
+const CONFIRMATION_WINDOW_MS = 1500;
+const ATTEMPT_INTERVAL_MS = 240;
+
 let quaggaPromise = null;
 let captureCanvas = null;
 let captureContext = null;
@@ -85,7 +89,77 @@ const captureBarcodeRegion = (video) => {
     outputHeight
   );
 
-  return canvas.toDataURL("image/jpeg", 0.86);
+  return canvas.toDataURL("image/jpeg", 0.9);
+};
+
+const normalizeBarcode = (value) => String(value || "").replace(/\D/g, "");
+
+const hasValidMod10Checksum = (value) => {
+  const code = normalizeBarcode(value);
+  if (code.length < 2) return false;
+
+  const digits = [...code].map(Number);
+  const expectedCheckDigit = digits.pop();
+  let sum = 0;
+
+  // GS1 Mod-10: desde la derecha del cuerpo, multiplicadores 3,1,3,1…
+  for (let index = digits.length - 1, position = 0; index >= 0; index -= 1, position += 1) {
+    sum += digits[index] * (position % 2 === 0 ? 3 : 1);
+  }
+
+  const calculatedCheckDigit = (10 - (sum % 10)) % 10;
+  return calculatedCheckDigit === expectedCheckDigit;
+};
+
+const expandUpcE = (value) => {
+  const code = normalizeBarcode(value);
+  if (code.length !== 8) return null;
+
+  const numberSystem = code[0];
+  if (numberSystem !== "0" && numberSystem !== "1") return null;
+
+  const payload = code.slice(1, 7);
+  const checkDigit = code[7];
+  const [d1, d2, d3, d4, d5, d6] = payload;
+  let manufacturer;
+  let product;
+
+  if (["0", "1", "2"].includes(d6)) {
+    manufacturer = `${d1}${d2}${d6}00`;
+    product = `00${d3}${d4}${d5}`;
+  } else if (d6 === "3") {
+    manufacturer = `${d1}${d2}${d3}00`;
+    product = `000${d4}${d5}`;
+  } else if (d6 === "4") {
+    manufacturer = `${d1}${d2}${d3}${d4}0`;
+    product = `0000${d5}`;
+  } else {
+    manufacturer = `${d1}${d2}${d3}${d4}${d5}`;
+    product = `0000${d6}`;
+  }
+
+  return `${numberSystem}${manufacturer}${product}${checkDigit}`;
+};
+
+const isValidDetectedBarcode = (rawValue, format) => {
+  const code = normalizeBarcode(rawValue);
+  if (![8, 12, 13].includes(code.length)) return false;
+
+  if (format === "upc_e") {
+    const expanded = expandUpcE(code);
+    return Boolean(expanded && hasValidMod10Checksum(expanded));
+  }
+
+  if (format === "ean_13" && code.length !== 13) return false;
+  if (format === "ean_8" && code.length !== 8) return false;
+  if (format === "upc_a" && code.length !== 12) return false;
+
+  if (code.length === 8 && !format) {
+    const expanded = expandUpcE(code);
+    return hasValidMod10Checksum(code) || Boolean(expanded && hasValidMod10Checksum(expanded));
+  }
+
+  return hasValidMod10Checksum(code);
 };
 
 const decodeWithQuagga = async (video, formats) => {
@@ -128,7 +202,7 @@ const decodeWithQuagga = async (video, formats) => {
     );
   });
 
-  const rawValue = result?.codeResult?.code;
+  const rawValue = normalizeBarcode(result?.codeResult?.code);
   if (!rawValue) return [];
 
   const readerName = result?.codeResult?.format || "";
@@ -136,7 +210,7 @@ const decodeWithQuagga = async (video, formats) => {
     .find(([, reader]) => reader.replace("_reader", "") === readerName)?.[0]
     || null;
 
-  return [{ rawValue: String(rawValue), format: detectedFormat }];
+  return [{ rawValue, format: detectedFormat }];
 };
 
 class TreinoBarcodeDetector {
@@ -146,10 +220,40 @@ class TreinoBarcodeDetector {
     if (!this.formats.length) this.formats = [...SUPPORTED_FORMATS];
     this.lastAttempt = 0;
     this.busy = false;
+    this.confirmations = [];
   }
 
   static async getSupportedFormats() {
     return [...SUPPORTED_FORMATS];
+  }
+
+  rememberCandidate(candidate, now) {
+    this.confirmations = this.confirmations
+      .filter((item) => now - item.detectedAt <= CONFIRMATION_WINDOW_MS);
+
+    this.confirmations.push({
+      rawValue: candidate.rawValue,
+      format: candidate.format || null,
+      detectedAt: now,
+    });
+
+    const matching = this.confirmations.filter((item) => item.rawValue === candidate.rawValue);
+    window.__TREINO_BARCODE_SCAN_PROGRESS__ = {
+      code: candidate.rawValue,
+      confirmations: Math.min(CONFIRMATIONS_REQUIRED, matching.length),
+      required: CONFIRMATIONS_REQUIRED,
+    };
+
+    if (matching.length < CONFIRMATIONS_REQUIRED) return false;
+
+    this.confirmations = [];
+    window.__TREINO_BARCODE_SCAN_PROGRESS__ = {
+      code: candidate.rawValue,
+      confirmations: CONFIRMATIONS_REQUIRED,
+      required: CONFIRMATIONS_REQUIRED,
+      confirmed: true,
+    };
+    return true;
   }
 
   async detect(source) {
@@ -161,12 +265,25 @@ class TreinoBarcodeDetector {
     // Quagga procesa una imagen completa. Limitar a ~4 intentos por segundo
     // mantiene el escaneo fluido sin castigar CPU/batería del iPhone.
     const now = typeof performance !== "undefined" ? performance.now() : Date.now();
-    if (now - this.lastAttempt < 240) return [];
+    if (now - this.lastAttempt < ATTEMPT_INTERVAL_MS) return [];
     this.lastAttempt = now;
     this.busy = true;
 
     try {
-      return await decodeWithQuagga(source, this.formats);
+      const results = await decodeWithQuagga(source, this.formats);
+      const candidate = results?.[0];
+      if (!candidate) return [];
+
+      // No confiamos en una lectura parcial/accidental: primero debe tener una
+      // longitud EAN/UPC posible y pasar el dígito verificador GS1.
+      if (!isValidDetectedBarcode(candidate.rawValue, candidate.format)) {
+        return [];
+      }
+
+      // Un frame correcto todavía puede ser casual. Treino exige 3 lecturas
+      // iguales dentro de 1,5 s antes de devolver el código al MealLogger.
+      const confirmed = this.rememberCandidate(candidate, now);
+      return confirmed ? [candidate] : [];
     } catch (error) {
       console.warn("[Treino] fallback de código de barras:", error?.message || error);
       return [];
