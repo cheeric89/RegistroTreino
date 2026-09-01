@@ -1,25 +1,47 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { getLocalProfile, saveLocalProfile } from "../utils/storage";
 
 const TABLE = "profiles";
 
+const cachedProfileForUser = (user) => {
+  const cached = getLocalProfile();
+  if (!cached) return null;
+  if (!user?.id) return cached;
+  return cached?.id === user.id ? cached : null;
+};
+
 export function useProfile() {
   const { user } = useAuth();
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const initialCache = cachedProfileForUser(user);
+  const [profile, setProfile] = useState(initialCache);
+  const [loading, setLoading] = useState(!initialCache);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
+  const cachedProfile = useMemo(() => cachedProfileForUser(user), [user?.id]);
+  const visibleProfile = user?.id
+    ? (profile?.id === user.id ? profile : cachedProfile)
+    : profile;
+
   const fetchProfile = useCallback(async () => {
-    setLoading(true);
     setError(null);
 
     if (!user) {
-      setProfile(getLocalProfile());
+      const local = getLocalProfile();
+      setProfile(local);
       setLoading(false);
       return;
+    }
+
+    const local = cachedProfileForUser(user);
+    if (local) {
+      setProfile(local);
+      setLoading(false);
+    } else {
+      setProfile(null);
+      setLoading(true);
     }
 
     const { data, error: err } = await supabase
@@ -31,9 +53,12 @@ export function useProfile() {
     if (err) {
       console.warn("[useProfile] fetch falló, usando caché local:", err.message);
       setError(err.message);
-      setProfile(getLocalProfile());
-    } else {
-      setProfile(data ?? getLocalProfile());
+      if (local) setProfile(local);
+    } else if (data) {
+      setProfile(data);
+      saveLocalProfile(data);
+    } else if (local) {
+      setProfile(local);
     }
 
     setLoading(false);
@@ -46,11 +71,14 @@ export function useProfile() {
   const saveProfile = useCallback(
     async (updates) => {
       setSaving(true);
-      const merged = { ...profile, ...updates };
+      const baseProfile = visibleProfile || cachedProfileForUser(user) || {};
+      const merged = { ...baseProfile, ...updates };
+
+      if (user?.id) merged.id = user.id;
       saveLocalProfile(merged);
+      setProfile(merged);
 
       if (!user) {
-        setProfile(merged);
         setSaving(false);
         return { error: null };
       }
@@ -65,7 +93,6 @@ export function useProfile() {
 
       if (err) {
         console.warn("[useProfile] guardado falló:", err.message);
-        setProfile(merged);
         setError(err.message);
         return { error: err.message };
       }
@@ -75,8 +102,15 @@ export function useProfile() {
       saveLocalProfile(data);
       return { error: null };
     },
-    [user, profile]
+    [user, visibleProfile]
   );
 
-  return { profile, loading, saving, error, fetchProfile, saveProfile };
+  return {
+    profile: visibleProfile,
+    loading,
+    saving,
+    error,
+    fetchProfile,
+    saveProfile,
+  };
 }
