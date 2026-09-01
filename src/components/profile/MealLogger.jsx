@@ -36,6 +36,7 @@ import {
   toggleFavoriteFood,
 } from "../../utils/nutritionQuickAccess";
 import { getOpenFoodFactsByBarcode, searchOpenFoodFacts } from "../../utils/openFoodFacts";
+import { prepareCameraVideo, waitForVideoElement } from "../../utils/waitForVideoElement";
 
 const formatMacro = (value) => `${Number(value || 0).toLocaleString("es-CL")} g`;
 const round1 = (value) => Math.round((Number(value) || 0) * 10) / 10;
@@ -143,7 +144,10 @@ export default function MealLogger({ entry, history = [], saving, onSave }) {
     scanFrameRef.current = null;
     cameraStreamRef.current?.getTracks?.().forEach((track) => track.stop());
     cameraStreamRef.current = null;
-    if (videoRef.current) videoRef.current.srcObject = null;
+    if (videoRef.current) {
+      videoRef.current.pause?.();
+      videoRef.current.srcObject = null;
+    }
     setCameraActive(false);
   };
 
@@ -332,15 +336,32 @@ export default function MealLogger({ entry, history = [], saving, onSave }) {
     try {
       stopCamera();
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } },
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
         audio: false,
       });
       cameraStreamRef.current = stream;
       setCameraActive(true);
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      if (!videoRef.current) return;
-      videoRef.current.srcObject = stream;
-      await videoRef.current.play();
+
+      // React puede tardar más de un tick en montar el <video> en Safari/iOS.
+      // Esperamos explícitamente el ref en vez de abandonar el escaneo y dejar
+      // una cámara encendida con preview negro.
+      const video = await waitForVideoElement(() => videoRef.current, { timeoutMs: 3000 });
+      if (!video || cameraStreamRef.current !== stream) {
+        stopCamera();
+        toast.warning("No pudimos preparar la vista de la cámara. Intenta de nuevo.");
+        return;
+      }
+
+      const previewReady = await prepareCameraVideo(video, stream, { timeoutMs: 4000 });
+      if (!previewReady || cameraStreamRef.current !== stream) {
+        stopCamera();
+        toast.warning("Safari abrió la cámara, pero no pudo mostrar la imagen. Intenta de nuevo.");
+        return;
+      }
 
       const supported = await window.BarcodeDetector.getSupportedFormats?.();
       const preferred = ["ean_13", "ean_8", "upc_a", "upc_e"];
@@ -350,7 +371,7 @@ export default function MealLogger({ entry, history = [], saving, onSave }) {
       const detector = new window.BarcodeDetector(formats.length ? { formats } : undefined);
 
       const scan = async () => {
-        if (!videoRef.current || !cameraStreamRef.current) return;
+        if (!videoRef.current || !cameraStreamRef.current || cameraStreamRef.current !== stream) return;
         try {
           const results = await detector.detect(videoRef.current);
           const value = results?.[0]?.rawValue;
@@ -484,8 +505,8 @@ export default function MealLogger({ entry, history = [], saving, onSave }) {
                   <button type="button" onClick={() => lookupBarcode()} disabled={barcodeLoading}>{barcodeLoading ? <Loader2 size={16} className="is-spinning" /> : <Search size={16} />} Buscar</button>
                   <button type="button" onClick={cameraActive ? stopCamera : startBarcodeCamera}><Camera size={16} /> {cameraActive ? "Cerrar cámara" : "Escanear"}</button>
                 </div>
-                {cameraActive && <video ref={videoRef} className="barcode-camera" playsInline muted />}
-                <small>La cámara usa el detector del navegador cuando está disponible. También puedes escribir el número del código.</small>
+                {cameraActive && <video ref={videoRef} className="barcode-camera" autoPlay playsInline muted disablePictureInPicture />}
+                <small>Apunta al código EAN/UPC del envase. En iPhone Treino usa el lector compatible con Safari; también puedes escribir el número manualmente.</small>
               </section>
             )}
 
