@@ -217,7 +217,7 @@ export default function App() {
     navigate(VIEWS.CATEGORY_SELECTOR);
   };
 
-  if (loading) {
+  if (loading || (user && profileLoading && !profile)) {
     return (
       <div className="app-loading-screen">
         <BrandLogo compact />
