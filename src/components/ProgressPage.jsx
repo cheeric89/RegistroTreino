@@ -1,27 +1,34 @@
 import { useEffect, useState } from "react";
-import { BarChart3, Scale, Trophy } from "lucide-react";
+import { BarChart3, CalendarRange, Scale, Trophy } from "lucide-react";
+import WeeklyInsights from "./WeeklyInsights";
 import ProgressView from "./profile/ProgressView";
 import BodyNutritionView from "./profile/BodyNutritionView";
 import PRsView from "./profile/PRsView";
 
 const TABS = [
+  { id: "week", label: "Semana", icon: CalendarRange },
   { id: "training", label: "Rendimiento", icon: BarChart3 },
   { id: "body", label: "Cuerpo", icon: Scale },
   { id: "records", label: "Récords", icon: Trophy },
 ];
 
-export default function ProgressPage({ initialTab = "training" }) {
-  const [tab, setTab] = useState(initialTab);
+const resolveInitialTab = (value) => {
+  if (value === "body" || value === "records") return value;
+  return "week";
+};
 
-  useEffect(() => setTab(initialTab), [initialTab]);
+export default function ProgressPage({ initialTab = "week" }) {
+  const [tab, setTab] = useState(() => resolveInitialTab(initialTab));
+
+  useEffect(() => setTab(resolveInitialTab(initialTab)), [initialTab]);
 
   return (
-    <div className="page-shell progress-page simplified-section-page">
+    <div className="page-shell progress-page simplified-section-page progress-page--v17">
       <header className="simplified-page-heading">
         <div>
           <span>Tu evolución</span>
           <h1>Progreso</h1>
-          <p>Todo lo que necesitas para ver si estás avanzando.</p>
+          <p>Primero la semana. Los detalles siguen a un toque.</p>
         </div>
       </header>
 
@@ -41,6 +48,7 @@ export default function ProgressPage({ initialTab = "training" }) {
       </nav>
 
       <div className="progress-page__content">
+        {tab === "week" && <WeeklyInsights />}
         {tab === "training" && <ProgressView />}
         {tab === "body" && (
           <div className="progress-body-view">
