@@ -32,6 +32,7 @@ import "./styles/portfolio-routine-launch.css";
 import "./styles/portfolio-workout-editor.css";
 import "./styles/portfolio-simplified-ux.css";
 import "./styles/portfolio-polish-1-6-1.css";
+import "./styles/portfolio-weekly-insights-1-7.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
