@@ -1,7 +1,5 @@
 import { getLocalDateKey, getNutritionTargets } from "./nutritionBodyAnalytics";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 const startOfDay = (value = new Date()) => {
   const date = new Date(value);
   date.setHours(0, 0, 0, 0);
@@ -15,7 +13,12 @@ export const getWeekStart = (value = new Date()) => {
   return date;
 };
 
-const addDays = (date, days) => new Date(date.getTime() + days * DAY_MS);
+const addDays = (date, days) => {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+};
+
 const dateFromKey = (key) => new Date(`${key}T12:00:00`);
 
 const isBetween = (timestamp, start, end) =>
