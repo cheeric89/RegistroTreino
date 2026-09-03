@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ArrowRight, Check, Dumbbell, Scale, Utensils } from "lucide-react";
+import { ArrowRight, BarChart3, Check, Dumbbell, Scale, Utensils } from "lucide-react";
 import { useWorkoutContext } from "../contexts/WorkoutContext";
 import { useBodyNutrition } from "../hooks/useBodyNutrition";
 import {
@@ -30,6 +30,8 @@ const isToday = (timestamp) => {
     && date.getMonth() === today.getMonth()
     && date.getDate() === today.getDate();
 };
+
+const formatVolume = (value) => Math.round(Number(value) || 0).toLocaleString("es-CL");
 
 export default function Dashboard({
   user,
@@ -62,12 +64,11 @@ export default function Dashboard({
     || Number(todayNutrition.protein_g || 0) > 0
     || (Array.isArray(todayNutrition.meals) && todayNutrition.meals.some((meal) => meal?.items?.length));
   const hasWeightToday = Number(todayBody?.weight_kg) > 0;
-  const todayDone = [Boolean(todayWorkout), hasNutritionToday, hasWeightToday].filter(Boolean).length;
   const syncBusy = syncing || bodyLoading;
   const offline = Boolean(syncError || bodySyncError);
 
   return (
-    <div className="page-shell simplified-dashboard treino-home-v17">
+    <div className="page-shell simplified-dashboard treino-home-v17 treino-home-v17--approved">
       <header className="today-header today-header--v17">
         <div>
           <span>{getGreeting()}</span>
@@ -78,26 +79,25 @@ export default function Dashboard({
         </small>
       </header>
 
-      <div className="home-today-label">
-        <span>HOY</span>
-        <strong>{todayDone} de 3 listas</strong>
+      <div className="home-today-label home-today-label--clean">
+        <span>Hoy</span>
       </div>
 
       <section className="today-stack" aria-label="Resumen de hoy">
         <article className={`today-action today-action--training ${todayWorkout ? "is-done" : ""}`}>
-          <div className="today-action__icon">{todayWorkout ? <Check size={20} /> : <Dumbbell size={20} />}</div>
+          <div className="today-action__icon">{todayWorkout ? <Check size={21} /> : <Dumbbell size={21} />}</div>
           <div className="today-action__body">
             <span>Entrenamiento</span>
             <strong>{todayWorkout ? (todayWorkout.day || "Sesión completada") : "Tu próxima sesión"}</strong>
             <small>{week.sessions}{week.goal ? ` / ${week.goal}` : ""} esta semana</small>
           </div>
           <button type="button" onClick={todayWorkout ? onOpenProgress : onStart}>
-            {todayWorkout ? "Progreso" : "Empezar"}<ArrowRight size={15} />
+            {todayWorkout ? "Progreso" : "Empezar"}<ArrowRight size={16} />
           </button>
         </article>
 
         <article className={`today-action today-action--nutrition ${hasNutritionToday ? "has-data" : ""}`}>
-          <div className="today-action__icon"><Utensils size={20} /></div>
+          <div className="today-action__icon"><Utensils size={21} /></div>
           <div className="today-action__body">
             <span>Nutrición</span>
             <strong>{hasNutritionToday
@@ -111,7 +111,7 @@ export default function Dashboard({
         </article>
 
         <article className={`today-action today-action--body ${hasWeightToday ? "is-done" : ""}`}>
-          <div className="today-action__icon">{hasWeightToday ? <Check size={20} /> : <Scale size={20} />}</div>
+          <div className="today-action__icon">{hasWeightToday ? <Check size={21} /> : <Scale size={21} />}</div>
           <div className="today-action__body">
             <span>Peso</span>
             <strong>{currentWeight != null ? `${Number(currentWeight).toLocaleString("es-CL")} kg` : "Sin registro"}</strong>
@@ -125,15 +125,38 @@ export default function Dashboard({
         </article>
       </section>
 
-      <section className="today-week today-week--v17">
-        <div className="today-week__top">
+      <section className="home-week-card" aria-label="Resumen de la semana">
+        <header className="home-week-card__header">
           <div>
-            <span>{week.goalReached ? "Objetivo semanal cumplido" : "Esta semana"}</span>
-            <strong>{week.sessions}{week.goal ? ` / ${week.goal}` : ""} entrenamientos</strong>
+            <span>Tu semana</span>
+            <small>{week.rangeLabel}</small>
           </div>
           <button type="button" onClick={onOpenProgress}>Ver semana <ArrowRight size={15} /></button>
+        </header>
+
+        <div className="home-week-card__metrics">
+          <div className="home-week-metric">
+            <span className="home-week-metric__icon"><BarChart3 size={17} /></span>
+            <strong>{week.sessions}{week.goal ? <small>/{week.goal}</small> : null}</strong>
+            <span>Entrenamientos</span>
+          </div>
+          <div className="home-week-metric">
+            <span className="home-week-metric__icon"><Dumbbell size={17} /></span>
+            <strong>{formatVolume(week.currentVolume)} <small>kg</small></strong>
+            <span>Volumen</span>
+          </div>
+          <div className="home-week-metric">
+            <span className="home-week-metric__icon"><Utensils size={17} /></span>
+            <strong>{week.nutritionLoggedDays}</strong>
+            <span>Nutrición</span>
+          </div>
         </div>
-        {week.goal > 0 && <div className="today-week__track"><i style={{ width: `${week.goalPercent}%` }} /></div>}
+
+        {week.goal > 0 && (
+          <div className="home-week-card__track" aria-label={`${week.goalPercent}% del objetivo semanal`}>
+            <i style={{ width: `${week.goalPercent}%` }} />
+          </div>
+        )}
       </section>
     </div>
   );
