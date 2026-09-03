@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BarChart3, CalendarRange, Scale, Trophy } from "lucide-react";
+import { BarChart3, CalendarRange, History, Scale, Trophy } from "lucide-react";
 import WeeklyInsights from "./WeeklyInsights";
 import ProgressView from "./profile/ProgressView";
 import BodyNutritionView from "./profile/BodyNutritionView";
@@ -17,19 +17,22 @@ const resolveInitialTab = (value) => {
   return "week";
 };
 
-export default function ProgressPage({ initialTab = "week" }) {
+export default function ProgressPage({ initialTab = "week", onOpenHistory }) {
   const [tab, setTab] = useState(() => resolveInitialTab(initialTab));
 
   useEffect(() => setTab(resolveInitialTab(initialTab)), [initialTab]);
 
   return (
     <div className="page-shell progress-page simplified-section-page progress-page--v17">
-      <header className="simplified-page-heading">
+      <header className="simplified-page-heading progress-page-heading--v17">
         <div>
           <span>Tu evolución</span>
           <h1>Progreso</h1>
           <p>Primero la semana. Los detalles siguen a un toque.</p>
         </div>
+        <button type="button" className="progress-history-button" onClick={onOpenHistory}>
+          <History size={17} /> Historial
+        </button>
       </header>
 
       <nav className="simplified-tabs" aria-label="Secciones de progreso">
