@@ -30,7 +30,7 @@ export default function ProgressPage({ initialTab = "week", onOpenHistory }) {
           <h1>Progreso</h1>
           <p>Primero la semana. Los detalles siguen a un toque.</p>
         </div>
-        <button type="button" className="progress-history-button" onClick={onOpenHistory}>
+        <button type="button" className="secondary-action-button progress-history-button" onClick={onOpenHistory}>
           <History size={17} /> Historial
         </button>
       </header>
