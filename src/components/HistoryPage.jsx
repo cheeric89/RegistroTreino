@@ -36,6 +36,7 @@ const getCategories = (workout) => {
 
 export default function HistoryPage({
   initialGroup = "push",
+  backLabel = "Inicio",
   onBack,
   onOpenWorkout,
   onRepeatWorkout,
@@ -84,7 +85,7 @@ export default function HistoryPage({
       <header className="history-heading">
         <button type="button" className="history-back-button" onClick={onBack}>
           <ArrowLeft size={18} />
-          <span>Inicio</span>
+          <span>{backLabel}</span>
         </button>
 
         <div className="history-heading__copy">

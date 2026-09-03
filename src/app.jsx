@@ -68,6 +68,7 @@ export default function App() {
   const [selectedWorkout, setSelectedWorkout] = useState(null);
   const [repeatWorkout, setRepeatWorkout] = useState(null);
   const [historyGroup, setHistoryGroup] = useState("push");
+  const [historyReturnView, setHistoryReturnView] = useState(VIEWS.DASHBOARD);
   const [detailReturnView, setDetailReturnView] = useState(VIEWS.DASHBOARD);
   const [routineReturnView, setRoutineReturnView] = useState(VIEWS.DASHBOARD);
   const [routineInitialType, setRoutineInitialType] = useState("push");
@@ -163,8 +164,9 @@ export default function App() {
     navigate(VIEWS.SUMMARY);
   };
 
-  const handleOpenHistory = (groupId) => {
+  const handleOpenHistory = (groupId, returnView = VIEWS.DASHBOARD) => {
     setHistoryGroup(groupId || "push");
+    setHistoryReturnView(returnView);
     navigate(VIEWS.HISTORY);
   };
 
@@ -249,7 +251,12 @@ export default function App() {
         )}
 
         {view === VIEWS.NUTRITION && <NutritionPage />}
-        {view === VIEWS.PROGRESS && <ProgressPage initialTab={progressInitialTab} />}
+        {view === VIEWS.PROGRESS && (
+          <ProgressPage
+            initialTab={progressInitialTab}
+            onOpenHistory={() => handleOpenHistory(null, VIEWS.PROGRESS)}
+          />
+        )}
         {view === VIEWS.PROFILE && <ProfileView />}
 
         {view === VIEWS.ROUTINES && (
@@ -263,7 +270,8 @@ export default function App() {
         {view === VIEWS.HISTORY && (
           <HistoryPage
             initialGroup={historyGroup}
-            onBack={() => navigate(VIEWS.DASHBOARD)}
+            backLabel={historyReturnView === VIEWS.PROGRESS ? "Progreso" : "Inicio"}
+            onBack={() => navigate(historyReturnView)}
             onOpenWorkout={(workout) => handleOpenWorkout(workout, VIEWS.HISTORY)}
             onRepeatWorkout={handleRepeatWorkout}
           />
