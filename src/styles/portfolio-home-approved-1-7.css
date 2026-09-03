@@ -1,0 +1,297 @@
+.treino-home-v17--approved {
+  width: min(100%, 860px);
+}
+
+.treino-home-v17--approved .today-header--v17 {
+  align-items: center;
+  padding: 10px 2px 24px;
+}
+
+.treino-home-v17--approved .today-header--v17 > div > span {
+  margin-bottom: 6px;
+  font-size: .88rem;
+}
+
+.treino-home-v17--approved .today-header--v17 h1 {
+  font-size: clamp(2.35rem, 6vw, 3rem);
+  letter-spacing: -.045em;
+}
+
+.treino-home-v17--approved .today-header--v17 > small {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 0;
+  padding: 8px 12px;
+}
+
+.treino-home-v17--approved .today-header--v17 > small:not(.is-offline)::before {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #4ade80;
+  content: "";
+}
+
+.home-today-label--clean {
+  margin: 0 2px 12px;
+}
+
+.home-today-label--clean > span {
+  color: #f4eff9;
+  font-size: 1.02rem;
+  font-weight: 820;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.treino-home-v17--approved .today-stack {
+  gap: 9px;
+}
+
+.treino-home-v17--approved .today-action {
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  gap: 13px;
+  min-height: 94px;
+  padding: 14px 16px;
+  border-color: rgba(255,255,255,.07);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(255,255,255,.022), rgba(139,92,246,.018));
+}
+
+.treino-home-v17--approved .today-action__icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 15px;
+  background: rgba(139,92,246,.13);
+}
+
+.treino-home-v17--approved .today-action__body > span {
+  margin-bottom: 3px;
+  color: #b77bff;
+  font-size: .74rem;
+}
+
+.treino-home-v17--approved .today-action__body > strong {
+  font-size: 1.03rem;
+  line-height: 1.2;
+  white-space: normal;
+}
+
+.treino-home-v17--approved .today-action__body > small {
+  margin-top: 4px;
+  color: #8e8798;
+  font-size: .74rem;
+  line-height: 1.25;
+}
+
+.treino-home-v17--approved .today-action > button {
+  grid-column: auto;
+  justify-self: end;
+  min-width: 92px;
+  min-height: 40px;
+  margin-top: 0;
+  padding: 0 13px;
+  border: 1px solid rgba(168,85,247,.34);
+  border-radius: 12px;
+  background: rgba(126,61,191,.12);
+  color: #d8b4fe;
+  font-size: .78rem;
+}
+
+.treino-home-v17--approved .today-action--training > button {
+  border-color: transparent;
+  background: linear-gradient(135deg,#7c3aed,#a72ff1);
+  color: #fff;
+  box-shadow: 0 8px 22px rgba(126,61,191,.22);
+}
+
+.home-week-card {
+  margin-top: 12px;
+  padding: 14px 16px 13px;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(255,255,255,.022), rgba(139,92,246,.024));
+}
+
+.home-week-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.home-week-card__header > div > span,
+.home-week-card__header > div > small {
+  display: block;
+}
+
+.home-week-card__header > div > span {
+  color: #f6f1fb;
+  font-size: .94rem;
+  font-weight: 820;
+}
+
+.home-week-card__header > div > small {
+  margin-top: 2px;
+  color: #756e7d;
+  font-size: .63rem;
+}
+
+.home-week-card__header > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #c084fc;
+  font: inherit;
+  font-size: .72rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.home-week-card__metrics {
+  display: grid;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+}
+
+.home-week-metric {
+  min-width: 0;
+  padding: 0 10px;
+  text-align: center;
+}
+
+.home-week-metric + .home-week-metric {
+  border-left: 1px solid rgba(255,255,255,.07);
+}
+
+.home-week-metric__icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  margin: 0 auto 6px;
+  place-items: center;
+  border-radius: 11px;
+  background: rgba(139,92,246,.11);
+  color: #bd82ff;
+}
+
+.home-week-metric > strong,
+.home-week-metric > span:last-child {
+  display: block;
+}
+
+.home-week-metric > strong {
+  overflow: hidden;
+  color: #f6f1fb;
+  font-size: 1.05rem;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-week-metric > strong > small {
+  color: #9d95a6;
+  font-size: .7em;
+  font-weight: 650;
+}
+
+.home-week-metric > span:last-child {
+  margin-top: 4px;
+  color: #8c8594;
+  font-size: .65rem;
+}
+
+.home-week-card__track {
+  height: 4px;
+  margin: 12px 4px 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255,255,255,.065);
+}
+
+.home-week-card__track > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg,#7c3aed,#c084fc);
+}
+
+@media (max-width: 560px) {
+  .treino-home-v17--approved .today-header--v17 {
+    padding-top: 4px;
+    padding-bottom: 20px;
+  }
+
+  .treino-home-v17--approved .today-header--v17 h1 {
+    font-size: 2.35rem;
+  }
+
+  .treino-home-v17--approved .today-action {
+    grid-template-columns: 46px minmax(0,1fr) auto;
+    gap: 10px;
+    min-height: 88px;
+    padding: 12px 13px;
+  }
+
+  .treino-home-v17--approved .today-action__icon {
+    width: 46px;
+    height: 46px;
+  }
+
+  .treino-home-v17--approved .today-action > button {
+    grid-column: auto;
+    justify-self: end;
+    min-width: 86px;
+    min-height: 38px;
+    padding: 0 10px;
+  }
+
+  .home-week-card {
+    padding: 13px 12px 12px;
+  }
+
+  .home-week-metric {
+    padding-inline: 6px;
+  }
+}
+
+@media (max-width: 390px) {
+  .treino-home-v17--approved .today-action {
+    grid-template-columns: 42px minmax(0,1fr) auto;
+    gap: 8px;
+    padding-inline: 11px;
+  }
+
+  .treino-home-v17--approved .today-action__icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 13px;
+  }
+
+  .treino-home-v17--approved .today-action__body > strong {
+    font-size: .94rem;
+  }
+
+  .treino-home-v17--approved .today-action__body > small {
+    font-size: .68rem;
+  }
+
+  .treino-home-v17--approved .today-action > button {
+    min-width: 78px;
+    padding-inline: 8px;
+    font-size: .72rem;
+  }
+
+  .home-week-card__header > div > small {
+    display: none;
+  }
+
+  .home-week-metric > strong {
+    font-size: .95rem;
+  }
+}
