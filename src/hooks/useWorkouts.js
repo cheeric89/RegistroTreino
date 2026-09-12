@@ -170,7 +170,7 @@ export function useWorkouts() {
     next = applyPendingOperations(next, getWorkoutSyncQueue(userId));
 
     replaceAllWorkouts(next, userId);
-    setError(null);
+    setError(getWorkoutSyncQueue(userId).length ? "Hay cambios pendientes de sincronizar" : null);
     return next;
   }, [flushPendingOperations, migrateLegacyWorkouts, user]);
 

@@ -56,7 +56,7 @@ export function useBodyNutrition() {
   const userId = user?.id || null;
   const [bodyEntries, setBodyEntries] = useState(() => getLocalBodyEntries(userId));
   const [nutritionEntries, setNutritionEntries] = useState(() => getLocalNutritionEntries(userId));
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(userId));
   const [saving, setSaving] = useState(false);
   const [syncError, setSyncError] = useState(null);
 
@@ -82,12 +82,11 @@ export function useBodyNutrition() {
     setBodyEntries(localBody);
     setNutritionEntries(localNutrition);
 
-    if (!userId) return;
+    if (!userId) { setLoading(false); return; }
 
     setLoading(true);
     setSyncError(null);
     await flushQueue();
-    const pending = getBodyNutritionQueue(userId);
 
     const [bodyResult, nutritionResult] = await Promise.all([
       supabase
@@ -110,6 +109,7 @@ export function useBodyNutrition() {
       return;
     }
 
+    const pending = getBodyNutritionQueue(userId);
     const pendingBody = pending.filter((item) => item.kind === "body").map((item) => item.entry);
     const pendingNutrition = pending.filter((item) => item.kind === "nutrition").map((item) => item.entry);
     const nextBody = mergeBodyNutritionEntries(bodyResult.data || [], pendingBody);
@@ -120,12 +120,18 @@ export function useBodyNutrition() {
     replaceLocalNutritionEntries(userId, nextNutrition);
     setBodyEntries(nextBody);
     setNutritionEntries(nextNutrition);
-    setSyncError(null);
+    setSyncError(pending.length ? "Hay registros pendientes de sincronizar" : null);
   }, [flushQueue, userId]);
 
   useEffect(() => {
     void fetchEntries();
   }, [fetchEntries]);
+
+  useEffect(() => {
+    const reconnect = () => { if (!saving) void fetchEntries(); };
+    window.addEventListener("online", reconnect);
+    return () => window.removeEventListener("online", reconnect);
+  }, [fetchEntries, saving]);
 
   const saveBodyEntry = useCallback(async (rawEntry) => {
     const entry = normalizeBodyEntry(rawEntry);
@@ -187,6 +193,7 @@ export function useBodyNutrition() {
     loading,
     saving,
     syncError,
+    pendingCount: getBodyNutritionQueue(userId).length,
     fetchEntries,
     saveBodyEntry,
     saveNutritionEntry,

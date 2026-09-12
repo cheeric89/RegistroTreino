@@ -1,4 +1,4 @@
-import { getLocalDateKey, getNutritionTargets } from "./nutritionBodyAnalytics";
+import { getLocalDateKey, getNutritionTargets } from "./nutritionBodyAnalytics.js";
 
 const startOfDay = (value = new Date()) => {
   const date = new Date(value);
@@ -140,7 +140,7 @@ export const buildWeeklyInsights = ({
     : null;
   const nutritionGoalDays = currentNutrition.filter((entry) => isNutritionOnTarget(entry, targets)).length;
 
-  const weights = getWeightEntries(bodyEntries);
+  const weights = getWeightEntries(bodyEntries).filter((entry) => entry.entry_date <= getLocalDateKey(now));
   const weekWeights = weights.filter((entry) => entry.date >= weekStart && entry.date < weekEnd);
   const latestWeight = weights.at(-1) || null;
   const weightStart = weekWeights[0] || null;
@@ -161,7 +161,8 @@ export const buildWeeklyInsights = ({
     rangeLabel: `${new Intl.DateTimeFormat("es-CL", { day: "numeric", month: "short" }).format(weekStart)} — ${new Intl.DateTimeFormat("es-CL", { day: "numeric", month: "short" }).format(addDays(weekEnd, -1))}`,
     sessions,
     previousSessions,
-    sessionDelta: sessions - previousSessions,
+    sessionDelta: workouts.some((workout) => getWorkoutTimestamp(workout) > 0 && getWorkoutTimestamp(workout) < weekStart.getTime())
+      ? sessions - previousSessions : null,
     goal,
     goalPercent,
     goalReached: goal > 0 && sessions >= goal,
@@ -172,6 +173,7 @@ export const buildWeeklyInsights = ({
     avgProtein,
     nutritionLoggedDays,
     nutritionGoalDays,
+    hasNutritionTargets: targets.calories > 0 || targets.protein > 0,
     latestWeight: latestWeight?.weight_kg ?? null,
     weightDelta,
     days,

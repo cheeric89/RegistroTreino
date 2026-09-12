@@ -9,6 +9,8 @@ import {
   getWeightAnalytics,
 } from "../utils/nutritionBodyAnalytics";
 import { buildWeeklyInsights } from "../utils/weeklyInsights";
+import SyncStatus from "./ui/SyncStatus";
+import { PageLoading } from "./ui/PageBoundary";
 
 const getGreeting = () => {
   const hour = new Date().getHours();
@@ -41,8 +43,8 @@ export default function Dashboard({
   onQuickBody,
   onOpenProgress,
 }) {
-  const { workouts, syncing, syncError } = useWorkoutContext();
-  const { bodyEntries, nutritionEntries, loading: bodyLoading, syncError: bodySyncError } = useBodyNutrition();
+  const { workouts, syncing, syncError, loading, pendingCount } = useWorkoutContext();
+  const { bodyEntries, nutritionEntries, loading: bodyLoading, syncError: bodySyncError, pendingCount: bodyPending } = useBodyNutrition();
 
   const todayWorkout = useMemo(() => [...workouts]
     .sort((a, b) => getWorkoutTimestamp(b) - getWorkoutTimestamp(a))
@@ -65,7 +67,7 @@ export default function Dashboard({
     || (Array.isArray(todayNutrition.meals) && todayNutrition.meals.some((meal) => meal?.items?.length));
   const hasWeightToday = Number(todayBody?.weight_kg) > 0;
   const syncBusy = syncing || bodyLoading;
-  const offline = Boolean(syncError || bodySyncError);
+  if (loading && !workouts.length && !bodyEntries.length && !nutritionEntries.length) return <PageLoading label="Cargando tu día…" />;
 
   return (
     <div className="page-shell simplified-dashboard treino-home-v17 treino-home-v17--approved">
@@ -74,9 +76,7 @@ export default function Dashboard({
           <span>{getGreeting()}</span>
           <h1>{getDisplayName(profile, user)}</h1>
         </div>
-        <small className={offline ? "is-offline" : ""}>
-          {syncBusy ? "Sincronizando…" : offline ? "Offline" : "Al día"}
-        </small>
+        <SyncStatus busy={syncBusy} error={syncError || bodySyncError} pending={pendingCount + bodyPending} />
       </header>
 
       <div className="home-today-label home-today-label--clean">

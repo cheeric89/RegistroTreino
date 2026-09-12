@@ -11,9 +11,19 @@ export default function RirPicker({ value, onChange, disabled = false }) {
     const handlePointerDown = (event) => {
       if (!rootRef.current?.contains(event.target)) setOpen(false);
     };
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape" && open) {
+        setOpen(false);
+        rootRef.current?.querySelector("button")?.focus();
+      }
+    };
     document.addEventListener("pointerdown", handlePointerDown);
-    return () => document.removeEventListener("pointerdown", handlePointerDown);
-  }, []);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
 
   if (disabled) {
     return <span className="rir-picker rir-picker--disabled">—</span>;
@@ -43,10 +53,13 @@ export default function RirPicker({ value, onChange, disabled = false }) {
               <button
                 key={option}
                 type="button"
+                aria-pressed={numericValue === option}
+                aria-label={`${option} repeticiones en reserva`}
                 className={numericValue === option ? "is-selected" : ""}
                 onClick={() => {
                   onChange?.(option);
                   setOpen(false);
+                  rootRef.current?.querySelector("button")?.focus();
                 }}
               >
                 {option}
@@ -58,6 +71,7 @@ export default function RirPicker({ value, onChange, disabled = false }) {
               onClick={() => {
                 onChange?.("");
                 setOpen(false);
+                rootRef.current?.querySelector("button")?.focus();
               }}
             >
               Limpiar

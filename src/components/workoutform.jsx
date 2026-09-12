@@ -124,6 +124,7 @@ export default function WorkoutForm({
 }) {
   const { profile } = useProfile();
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [exerciseSuggestions] = useState(() => getExerciseSuggestions());
   const [activeSuggestions, setActiveSuggestions] = useState({ ci: null, ei: null, list: [] });
@@ -371,7 +372,8 @@ export default function WorkoutForm({
 
   const handleSave = useCallback((event) => {
     event?.preventDefault();
-    if (saving) return;
+    if (savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     let totalVolume = 0;
     let prCount = 0;
@@ -396,7 +398,13 @@ export default function WorkoutForm({
       exercises: historyCategories,
       categories: historyCategories.map((category) => category.name),
     };
-    if (saveWorkout(workout)) clearDraftWorkout();
+    if (!saveWorkout(workout)) {
+      savingRef.current = false;
+      setSaving(false);
+      toast.error("No se pudo guardar. Conserva esta pantalla e inténtalo otra vez.");
+      return;
+    }
+    clearDraftWorkout();
     setTimeout(() => {
       setSaving(false);
       onSave?.(workout);

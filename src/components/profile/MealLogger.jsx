@@ -36,6 +36,10 @@ import {
   toggleFavoriteFood,
 } from "../../utils/nutritionQuickAccess";
 import { getOpenFoodFactsByBarcode, searchOpenFoodFacts } from "../../utils/openFoodFacts";
+import "../../utils/barcodeDetectorPolyfill";
+import { BarcodeConsensus, SCAN_INTERVAL_MS } from "../../utils/barcodeValidation";
+import { useAsyncAction } from "../../hooks/useAsyncAction";
+import { useDialog } from "../../hooks/useDialog";
 import { prepareCameraVideo, waitForVideoElement } from "../../utils/waitForVideoElement";
 
 const formatMacro = (value) => `${Number(value || 0).toLocaleString("es-CL")} g`;
@@ -68,6 +72,12 @@ export default function MealLogger({ entry, history = [], saving, onSave }) {
   const [barcodeLoading, setBarcodeLoading] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
 
+  const { pending, run } = useAsyncAction();
+  const busy = saving || pending;
+  const pickerTriggerRef = useRef(null);
+  const cameraRequestRef = useRef(0);
+  const lookupRequestRef = useRef(0);
+  const [cameraStarting, setCameraStarting] = useState(false);
   const videoRef = useRef(null);
   const cameraStreamRef = useRef(null);
   const scanFrameRef = useRef(null);
@@ -135,11 +145,15 @@ export default function MealLogger({ entry, history = [], saving, onSave }) {
   }, [query, activeMeal]);
 
   useEffect(() => () => {
+    cameraRequestRef.current += 1;
+    lookupRequestRef.current += 1;
     if (scanFrameRef.current) cancelAnimationFrame(scanFrameRef.current);
     cameraStreamRef.current?.getTracks?.().forEach((track) => track.stop());
   }, []);
 
   const stopCamera = () => {
+    cameraRequestRef.current += 1;
+    setCameraStarting(false);
     if (scanFrameRef.current) cancelAnimationFrame(scanFrameRef.current);
     scanFrameRef.current = null;
     cameraStreamRef.current?.getTracks?.().forEach((track) => track.stop());
@@ -152,10 +166,15 @@ export default function MealLogger({ entry, history = [], saving, onSave }) {
   };
 
   const closePicker = () => {
+    if (busy) return;
+    lookupRequestRef.current += 1;
+    setBarcodeLoading(false);
     stopCamera();
     setBarcodeOpen(false);
     setActiveMeal(null);
   };
+
+  const dialogRef = useDialog(Boolean(activeMeal), closePicker, pickerTriggerRef);
 
   const persistMeals = async (nextMeals) => {
     const totals = sumMeals(nextMeals);
@@ -174,7 +193,7 @@ export default function MealLogger({ entry, history = [], saving, onSave }) {
     await saveProfile({ recent_foods: nextRecent });
   };
 
-  const addSelectedFood = async () => {
+  const addSelectedFood = () => run(async () => {
     if (!activeMeal || !selectedFood) return;
     const item = createMealItem(selectedFood, portions);
     const nextMeals = upsertMealItem(meals, activeMeal, item);
@@ -185,30 +204,30 @@ export default function MealLogger({ entry, history = [], saving, onSave }) {
     setSelectedFood(null);
     setQuery("");
     setPortions(1);
-  };
+  });
 
-  const deleteItem = async (mealType, itemId) => {
+  const deleteItem = (mealType, itemId) => run(async () => {
     const nextMeals = removeMealItem(meals, mealType, itemId);
     const result = await persistMeals(nextMeals);
     if (result?.error) toast.warning("Cambio guardado localmente");
-  };
+  });
 
-  const toggleFavorite = async (food) => {
+  const toggleFavorite = (food) => run(async () => {
     const wasFavorite = isFavoriteFood(favoriteFoods, food);
     const next = toggleFavoriteFood(favoriteFoods, food);
     const result = await saveProfile({ favorite_foods: next });
     if (result?.error) return toast.warning("No se pudo sincronizar el favorito");
     toast.success(wasFavorite ? "Quitado de favoritos" : "Agregado a favoritos");
-  };
+  });
 
-  const copyPreviousDay = async () => {
+  const copyPreviousDay = () => run(async () => {
     if (!previousDay) return toast.info("Todavía no hay un día anterior para copiar");
     const result = await persistMeals(cloneMeals(previousDay.meals));
     if (result?.error) toast.warning("Día copiado localmente; se sincronizará después");
     else toast.success(`Copiado desde ${previousDay.entry_date}`);
-  };
+  });
 
-  const copyPreviousMeal = async (mealType) => {
+  const copyPreviousMeal = (mealType) => run(async () => {
     const sourceEntry = previousEntries.find((candidate) => {
       const sourceMeal = getMealForType(candidate.meals, mealType);
       return sourceMeal.items.length > 0;
@@ -220,7 +239,7 @@ export default function MealLogger({ entry, history = [], saving, onSave }) {
     const result = await persistMeals(nextMeals);
     if (result?.error) toast.warning("Comida copiada localmente");
     else toast.success(`Comida copiada desde ${sourceEntry.entry_date}`);
-  };
+  });
 
   const startCustomRecipe = () => {
     setCustomMode(true);
@@ -289,7 +308,7 @@ export default function MealLogger({ entry, history = [], saving, onSave }) {
     };
   };
 
-  const saveCustomRecipe = async () => {
+  const saveCustomRecipe = () => run(async () => {
     if (!recipeName.trim()) return toast.error("Ponle un nombre a tu comida");
     if (!recipeItems.length) return toast.error("Agrega al menos un ingrediente");
     const recipe = buildRecipeFood();
@@ -297,7 +316,7 @@ export default function MealLogger({ entry, history = [], saving, onSave }) {
 
     const next = [recipe, ...customFoods.filter((item) => normalize(item.name) !== normalize(recipe.name))];
     const result = await saveProfile({ custom_recipes: next });
-    if (result?.error) toast.warning("Receta guardada localmente; se sincronizará después");
+    if (result?.error) toast.warning("Receta guardada en este dispositivo; no se pudo sincronizar");
     else toast.success(`${recipe.name} guardada en Mis comidas`);
 
     setCustomMode(false);
@@ -306,13 +325,16 @@ export default function MealLogger({ entry, history = [], saving, onSave }) {
     setSelectedFood(recipe);
     setPortions(1);
     setQuery("");
-  };
+  });
 
   const lookupBarcode = async (rawCode = barcodeValue) => {
+    if (barcodeLoading) return;
+    const requestId = ++lookupRequestRef.current;
     const code = String(rawCode || "").replace(/\D/g, "");
     if (code.length < 8) return toast.info("Ingresa un código de barras válido");
     setBarcodeLoading(true);
     const product = await getOpenFoodFactsByBarcode(code);
+    if (requestId !== lookupRequestRef.current) return;
     setBarcodeLoading(false);
     if (!product) return toast.info("No encontramos ese producto en Open Food Facts");
     setSelectedFood(product);
@@ -333,8 +355,10 @@ export default function MealLogger({ entry, history = [], saving, onSave }) {
       return;
     }
 
+    stopCamera();
+    setCameraStarting(true);
+    const requestId = cameraRequestRef.current;
     try {
-      stopCamera();
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: "environment" },
@@ -343,21 +367,28 @@ export default function MealLogger({ entry, history = [], saving, onSave }) {
         },
         audio: false,
       });
+      if (cameraRequestRef.current !== requestId) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
       cameraStreamRef.current = stream;
+      setCameraStarting(false);
       setCameraActive(true);
 
       // React puede tardar más de un tick en montar el <video> en Safari/iOS.
       // Esperamos explícitamente el ref en vez de abandonar el escaneo y dejar
       // una cámara encendida con preview negro.
       const video = await waitForVideoElement(() => videoRef.current, { timeoutMs: 3000 });
-      if (!video || cameraStreamRef.current !== stream) {
+      if (cameraStreamRef.current !== stream) return;
+      if (!video) {
         stopCamera();
         toast.warning("No pudimos preparar la vista de la cámara. Intenta de nuevo.");
         return;
       }
 
       const previewReady = await prepareCameraVideo(video, stream, { timeoutMs: 4000 });
-      if (!previewReady || cameraStreamRef.current !== stream) {
+      if (cameraStreamRef.current !== stream) return;
+      if (!previewReady) {
         stopCamera();
         toast.warning("Safari abrió la cámara, pero no pudo mostrar la imagen. Intenta de nuevo.");
         return;
@@ -370,11 +401,20 @@ export default function MealLogger({ entry, history = [], saving, onSave }) {
         : preferred;
       const detector = new window.BarcodeDetector(formats.length ? { formats } : undefined);
 
+      const consensus = new BarcodeConsensus();
+      let lastAttempt = -Infinity;
       const scan = async () => {
         if (!videoRef.current || !cameraStreamRef.current || cameraStreamRef.current !== stream) return;
+        const now = performance.now();
+        if (now - lastAttempt < SCAN_INTERVAL_MS) {
+          scanFrameRef.current = requestAnimationFrame(scan);
+          return;
+        }
+        lastAttempt = now;
         try {
           const results = await detector.detect(videoRef.current);
-          const value = results?.[0]?.rawValue;
+          if (cameraStreamRef.current !== stream) return;
+          const value = consensus.accept(results, performance.now());
           if (value) {
             setBarcodeValue(value);
             stopCamera();
@@ -384,10 +424,11 @@ export default function MealLogger({ entry, history = [], saving, onSave }) {
         } catch (error) {
           console.warn("[Treino] escáner de código:", error?.message || error);
         }
-        scanFrameRef.current = requestAnimationFrame(scan);
+        if (cameraStreamRef.current === stream) scanFrameRef.current = requestAnimationFrame(scan);
       };
       scanFrameRef.current = requestAnimationFrame(scan);
     } catch (error) {
+      if (requestId !== cameraRequestRef.current) return;
       stopCamera();
       toast.warning("No pudimos abrir la cámara. Puedes ingresar el código manualmente.");
     }
@@ -400,9 +441,9 @@ export default function MealLogger({ entry, history = [], saving, onSave }) {
     <section className="meal-logger-card">
       <header className="meal-logger-card__header">
         <div>
-          <span className="card-kicker">Diario de comidas · Treino 1.5</span>
-          <h3>Registra lo que comiste, no los macros</h3>
-          <p>Favoritos, recientes, copiar comidas y código de barras para registrar en menos pasos.</p>
+          <span className="card-kicker">Diario de comidas</span>
+          <h3>Tus comidas de hoy</h3>
+          <p>Añade alimentos y Treino calcula sus calorías y macros.</p>
         </div>
         <Utensils size={20} />
       </header>
@@ -419,7 +460,7 @@ export default function MealLogger({ entry, history = [], saving, onSave }) {
           <span><Star size={14} /> {favoriteFoods.length} favoritos</span>
           <span><History size={14} /> {recentFoods.length} recientes</span>
         </div>
-        <button type="button" onClick={copyPreviousDay} disabled={!previousDay || saving}>
+        <button type="button" onClick={copyPreviousDay} disabled={!previousDay || busy}>
           <Copy size={15} /> {previousDay ? `Copiar día ${previousDay.entry_date}` : "Sin día anterior"}
         </button>
       </div>
@@ -445,9 +486,9 @@ export default function MealLogger({ entry, history = [], saving, onSave }) {
                 </div>
                 <div className="meal-block__actions">
                   {hasPreviousMeal && (
-                    <button type="button" className="meal-copy-button" onClick={() => copyPreviousMeal(mealType.id)} title="Copiar la última comida de este tipo"><Copy size={14} /></button>
+                    <button type="button" className="meal-copy-button" onClick={() => copyPreviousMeal(mealType.id)} disabled={busy} aria-label={`Copiar último ${mealType.label.toLowerCase()}`} title="Copiar la última comida de este tipo"><Copy size={14} /></button>
                   )}
-                  <button type="button" className="meal-add-button" onClick={() => { setActiveMeal(mealType.id); setCustomMode(false); }}><Plus size={15} /> Añadir</button>
+                  <button type="button" className="meal-add-button" onClick={(event) => { pickerTriggerRef.current = event.currentTarget; setActiveMeal(mealType.id); setCustomMode(false); }}><Plus size={15} /> Añadir</button>
                 </div>
               </div>
 
@@ -463,7 +504,7 @@ export default function MealLogger({ entry, history = [], saving, onSave }) {
                         <strong>{Number(item.calories || 0).toLocaleString("es-CL")} kcal</strong>
                         <span>P {formatMacro(item.protein_g)} · C {formatMacro(item.carbs_g)} · G {formatMacro(item.fat_g)}</span>
                       </div>
-                      <button type="button" className="meal-item__delete" onClick={() => deleteItem(mealType.id, item.id)} aria-label={`Eliminar ${item.name}`}><Trash2 size={15} /></button>
+                      <button type="button" className="meal-item__delete" onClick={() => deleteItem(mealType.id, item.id)} disabled={busy} aria-label={`Eliminar ${item.name}`}><Trash2 size={15} /></button>
                     </div>
                   ))}
                 </div>
@@ -474,14 +515,14 @@ export default function MealLogger({ entry, history = [], saving, onSave }) {
       </div>
 
       {activeMeal && (
-        <div className="meal-picker-backdrop" role="presentation" onMouseDown={closePicker}>
-          <div className="meal-picker" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+        <div ref={dialogRef} className="meal-picker-backdrop" role="presentation" onMouseDown={closePicker}>
+          <div className="meal-picker" role="dialog" aria-modal="true" aria-labelledby="meal-picker-title" tabIndex={-1} onMouseDown={(event) => event.stopPropagation()}>
             <header>
               <div>
                 <span className="card-kicker">{customMode ? "Crear comida personalizada" : `Añadir a ${MEAL_TYPES.find((meal) => meal.id === activeMeal)?.label}`}</span>
-                <h3>{customMode ? "Construye tu receta" : "¿Qué comiste?"}</h3>
+                <h3 id="meal-picker-title">{customMode ? "Construye tu receta" : "¿Qué comiste?"}</h3>
               </div>
-              <button type="button" onClick={closePicker} aria-label="Cerrar"><X size={18} /></button>
+              <button type="button" onClick={closePicker} disabled={busy} aria-label="Cerrar"><X size={18} /></button>
             </header>
 
             {customMode && (
@@ -503,16 +544,16 @@ export default function MealLogger({ entry, history = [], saving, onSave }) {
                 <div className="barcode-panel__row">
                   <label><span>Código</span><input inputMode="numeric" value={barcodeValue} onChange={(event) => setBarcodeValue(event.target.value.replace(/\D/g, ""))} placeholder="Ej: 7801234567890" /></label>
                   <button type="button" onClick={() => lookupBarcode()} disabled={barcodeLoading}>{barcodeLoading ? <Loader2 size={16} className="is-spinning" /> : <Search size={16} />} Buscar</button>
-                  <button type="button" onClick={cameraActive ? stopCamera : startBarcodeCamera}><Camera size={16} /> {cameraActive ? "Cerrar cámara" : "Escanear"}</button>
+                  <button type="button" disabled={cameraStarting} onClick={cameraActive ? stopCamera : startBarcodeCamera}><Camera size={16} /> {cameraStarting ? "Abriendo…" : cameraActive ? "Cerrar cámara" : "Escanear"}</button>
                 </div>
                 {cameraActive && <video ref={videoRef} className="barcode-camera" autoPlay playsInline muted disablePictureInPicture />}
-                <small>Apunta al código EAN/UPC del envase. En iPhone Treino usa el lector compatible con Safari; también puedes escribir el número manualmente.</small>
+                <small>Centra el código y mantén la cámara quieta un momento. También puedes escribir el número.</small>
               </section>
             )}
 
             <label className="meal-search-box">
               <Search size={17} />
-              <input autoFocus={!barcodeOpen} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={customMode ? "Busca un ingrediente…" : "Ej: arroz, pollo, marraqueta, yogur…"} />
+              <input aria-label={customMode ? "Buscar ingrediente" : "Buscar alimento"} autoFocus={!barcodeOpen} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={customMode ? "Busca un ingrediente…" : "Ej: arroz, pollo, marraqueta, yogur…"} />
               {searchingRemote && <Loader2 size={16} className="is-spinning" />}
             </label>
 
@@ -544,7 +585,7 @@ export default function MealLogger({ entry, history = [], saving, onSave }) {
                       {selected && <Check size={17} />}
                     </button>
                     {!customMode && (
-                      <button type="button" className={`meal-favorite-button ${favorite ? "is-favorite" : ""}`} onClick={() => toggleFavorite(food)} aria-label={favorite ? `Quitar ${food.name} de favoritos` : `Agregar ${food.name} a favoritos`}><Star size={16} fill={favorite ? "currentColor" : "none"} /></button>
+                      <button type="button" className={`meal-favorite-button ${favorite ? "is-favorite" : ""}`} onClick={() => toggleFavorite(food)} disabled={busy || profileSaving} aria-pressed={favorite} aria-label={favorite ? `Quitar ${food.name} de favoritos` : `Agregar ${food.name} a favoritos`}><Star size={16} fill={favorite ? "currentColor" : "none"} /></button>
                     )}
                   </div>
                 );
@@ -558,12 +599,12 @@ export default function MealLogger({ entry, history = [], saving, onSave }) {
               <section className="meal-portion-card">
                 <div className="meal-portion-card__heading"><div><span>Porción</span><strong>{selectedFood.name}</strong></div><span>{selectedFood.estimated ? "Estimación" : selectedFood.source === "open_food_facts" ? "Etiqueta / base externa" : selectedFood.source === "custom_recipe" ? "Mis comidas" : "Referencia nutricional"}</span></div>
                 <div className="meal-portion-controls">
-                  <button type="button" onClick={() => setPortions((value) => Math.max(0.25, Math.round((value - 0.25) * 100) / 100))}>−</button>
+                  <button type="button" aria-label="Reducir porción" onClick={() => setPortions((value) => Math.max(0.25, Math.round((value - 0.25) * 100) / 100))}>−</button>
                   <div><strong>{portions.toLocaleString("es-CL")} × {selectedFood.portionLabel}</strong><span>≈ {preview.grams} g</span></div>
-                  <button type="button" onClick={() => setPortions((value) => Math.round((value + 0.25) * 100) / 100)}>+</button>
+                  <button type="button" aria-label="Aumentar porción" onClick={() => setPortions((value) => Math.round((value + 0.25) * 100) / 100)}>+</button>
                 </div>
                 <div className="meal-portion-preview"><strong>{preview.calories} kcal</strong><span>{preview.protein_g} g proteína</span><span>{preview.carbs_g} g carbos</span><span>{preview.fat_g} g grasas</span></div>
-                <button type="button" className="primary-action-button" onClick={customMode ? addIngredient : addSelectedFood} disabled={saving}><Plus size={16} /> {customMode ? "Agregar ingrediente" : saving ? "Guardando…" : "Agregar a la comida"}</button>
+                <button type="button" className="primary-action-button" onClick={customMode ? addIngredient : addSelectedFood} aria-busy={busy} disabled={busy}><Plus size={16} /> {customMode ? "Agregar ingrediente" : busy ? "Guardando…" : "Agregar a la comida"}</button>
               </section>
             )}
 
@@ -575,8 +616,8 @@ export default function MealLogger({ entry, history = [], saving, onSave }) {
                   <small>{recipeServingGrams ? `≈ ${recipeServingGrams} g · P ${round1(recipeTotals.protein_g / safeServings)} · C ${round1(recipeTotals.carbs_g / safeServings)} · G ${round1(recipeTotals.fat_g / safeServings)}` : "Agrega ingredientes para calcular"}</small>
                 </div>
                 <div>
-                  <button type="button" className="secondary-action-button" onClick={cancelCustomRecipe}>Cancelar</button>
-                  <button type="button" className="primary-action-button" onClick={saveCustomRecipe} disabled={!recipeItems.length || !recipeName.trim() || profileSaving}><Save size={15} /> Guardar en Mis comidas</button>
+                  <button type="button" className="secondary-action-button" onClick={cancelCustomRecipe} disabled={busy}>Cancelar</button>
+                  <button type="button" className="primary-action-button" onClick={saveCustomRecipe} aria-busy={busy} disabled={!recipeItems.length || !recipeName.trim() || profileSaving || busy}><Save size={15} /> Guardar en Mis comidas</button>
                 </div>
               </section>
             )}

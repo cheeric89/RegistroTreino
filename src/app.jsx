@@ -1,26 +1,29 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useAuth } from "./contexts/AuthContext";
 import { useProfile } from "./hooks/useProfile";
 import { clearDraftWorkout, getDraftWorkout } from "./utils/storage";
 import { routineToTemplateCategories } from "./utils/routines";
 import AuthScreen from "./components/auth/AuthScreen";
 import Dashboard from "./components/dashboards";
-import NutritionPage from "./components/NutritionPage";
 import WelcomeSetup from "./components/WelcomeSetup";
 import DaySelector from "./components/dayselector";
 import TemplateSelector from "./components/templateselector";
 import CategorySelector from "./components/categoryselector";
-import WorkoutForm from "./components/workoutform";
-import WorkoutSummary from "./components/workoutsummary";
-import ProfileView from "./components/profile/ProfileView";
-import WorkoutDetail from "./components/WorkoutDetail";
-import WorkoutEditor from "./components/WorkoutEditor";
-import ProgressPage from "./components/ProgressPage";
-import HistoryPage from "./components/HistoryPage";
-import RoutinesManager from "./components/routines/RoutinesManager";
 import AppHeader from "./components/layout/AppHeader";
 import BottomNavigation from "./components/layout/BottomNavigation";
 import BrandLogo from "./components/layout/BrandLogo";
+
+import PageBoundary, { PageLoading } from "./components/ui/PageBoundary";
+
+const NutritionPage = lazy(() => import("./components/NutritionPage"));
+const WorkoutForm = lazy(() => import("./components/workoutform"));
+const WorkoutSummary = lazy(() => import("./components/workoutsummary"));
+const ProfileView = lazy(() => import("./components/profile/ProfileView"));
+const WorkoutDetail = lazy(() => import("./components/WorkoutDetail"));
+const WorkoutEditor = lazy(() => import("./components/WorkoutEditor"));
+const ProgressPage = lazy(() => import("./components/ProgressPage"));
+const HistoryPage = lazy(() => import("./components/HistoryPage"));
+const RoutinesManager = lazy(() => import("./components/routines/RoutinesManager"));
 
 const VIEWS = {
   DASHBOARD: "dashboards",
@@ -239,6 +242,8 @@ export default function App() {
       )}
 
       <main className={`app-main ${showChrome ? "app-main--shell" : "app-main--immersive"}`}>
+        <PageBoundary key={view} onHome={handleReset}>
+        <Suspense fallback={<PageLoading label="Abriendo pantalla…" />}>
         {view === VIEWS.DASHBOARD && (
           <Dashboard
             user={user}
@@ -270,6 +275,7 @@ export default function App() {
         {view === VIEWS.HISTORY && (
           <HistoryPage
             initialGroup={historyGroup}
+            onGroupChange={setHistoryGroup}
             backLabel={historyReturnView === VIEWS.PROGRESS ? "Progreso" : "Inicio"}
             onBack={() => navigate(historyReturnView)}
             onOpenWorkout={(workout) => handleOpenWorkout(workout, VIEWS.HISTORY)}
@@ -335,6 +341,8 @@ export default function App() {
             onOpenHistory={handleOpenHistory}
           />
         )}
+        </Suspense>
+        </PageBoundary>
       </main>
 
       {showChrome && (
