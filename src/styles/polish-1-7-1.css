@@ -1,0 +1,64 @@
+/* Refinements on top of the approved 1.7 layout. */
+.app-root button { touch-action: manipulation; }
+.app-root button[aria-busy="true"] { cursor: wait; }
+.app-root :is(button, a, input, select, textarea):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.page-loading { min-height: 220px; padding: 32px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: var(--text-2); text-align: center; }
+.page-loading p { max-width: 32ch; margin: 0; }
+.page-loading strong { color: var(--text-1); }
+.sync-status { display: inline-flex; align-items: center; gap: 7px; color: var(--text-2); font-size: .75rem; }
+.sync-status::before { content: ""; flex-shrink: 0; width: 7px; height: 7px; border-radius: 50%; background: #4ade80; }
+.treino-home-v17--approved .today-header--v17 > .sync-status:not(.sync-status--ready)::before,
+.sync-status:not(.sync-status--ready)::before { background: #fbbf24; }
+.sync-status--error, .sync-status--pending, .sync-status--offline { color: #e8bd70; }
+.body-sync-note { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+.today-header--v17 > div { min-width: 0; }
+.today-header--v17 h1 { overflow-wrap: anywhere; }
+.today-header--v17 > .sync-status { flex-shrink: 0; max-width: 45%; text-align: right; }
+.app-root :is(.back-btn, .wf-save-btn, .meal-item__delete, .meal-copy-button, .meal-favorite-button, .meal-picker > header > button) { min-width: 44px; min-height: 44px; }
+.app-root :is(.primary-action-button, .secondary-action-button, .dialog-button, .simplified-tabs > button,
+  .meal-add-button, .meal-speed-actions button, .meal-picker-tools button, .barcode-panel button,
+  .treino-select__trigger, .treino-select__menu button, .rir-picker__trigger, .rir-picker__options button) { min-height: 44px; }
+.treino-home-v17--approved .today-action > button,
+.treino-home-v17--approved .home-week-card__header > button { min-height: 44px; }
+.meal-portion-controls { grid-template-columns: 44px minmax(0, 1fr) 44px; }
+.meal-portion-controls > button { width: 44px; height: 44px; }
+.meal-picker-backdrop, .dialog-backdrop { top: var(--dialog-top, 0px); bottom: auto; height: var(--dialog-height, 100dvh); box-sizing: border-box; }
+.meal-picker-backdrop { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+.meal-picker { max-height: 100%; overscroll-behavior: contain; scroll-padding-block: 16px; }
+.meal-picker :is(input, button), .form-scroll :is(input, button) { scroll-margin-block: 16px; }
+.meal-picker > header { position: sticky; top: -18px; z-index: 2; padding-block: 12px; background: #12101a; }
+.meal-picker :is(.meal-food-result__select, .meal-item__main, .meal-portion-card__heading > div) { min-width: 0; }
+.meal-picker :is(strong, .meal-food-result__select span) { overflow-wrap: anywhere; }
+.meal-picker .meal-food-result { grid-template-columns: minmax(0, 1fr) auto; }
+.confirmation-dialog { max-height: 100%; overflow: auto; overflow-wrap: anywhere; }
+.meal-block__actions { flex-shrink: 0; }
+.form-scroll { scroll-padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+
+@media (max-width: 760px) {
+  .app-root :is(input, select, textarea) { font-size: 16px; min-width: 0; max-width: 100%; }
+  .body-entry-grid > label, .nutrition-target-grid > label, .workout-editor-meta > label { min-width: 0; }
+  .app-root input[type="date"] { width: 100%; box-sizing: border-box; }
+  .meal-picker { max-height: 100%; padding: 16px; }
+  .meal-picker > header { top: -16px; }
+  .meal-picker-backdrop { align-items: end; padding-inline: 8px; }
+  .meal-picker-tools { flex-wrap: wrap; }
+  .barcode-panel__row > label { min-width: 0; }
+  .meal-block__heading > div:first-child { min-width: 0; }
+  .meal-block__heading strong { overflow-wrap: anywhere; }
+  .rir-picker__menu { max-width: calc(100vw - 32px); }
+}
+@media (max-width: 360px) {
+  .meal-block__heading { flex-wrap: wrap; }
+  .meal-block__actions { margin-left: auto; }
+  .today-header--v17 > .sync-status { padding-inline: 8px; font-size: .68rem; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .app-root :is(.primary-action-button, .secondary-action-button, .today-action > button, .meal-add-button, .dialog-button, .bottom-navigation__item) { transition: background-color 140ms ease, border-color 140ms ease, transform 100ms ease, opacity 140ms ease; }
+  .app-root :is(.primary-action-button, .secondary-action-button, .today-action > button, .meal-add-button, .dialog-button, .bottom-navigation__item):active:not(:disabled) { transform: scale(.97); }
+  .meal-picker, .confirmation-dialog, .workout-detail-content { animation: treino-reveal 160ms ease-out; }
+  .home-week-card__track > i, .week-goal-track > i { transition: width 220ms ease; }
+}
+@keyframes treino-reveal { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .app-root *, .app-root *::before, .app-root *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

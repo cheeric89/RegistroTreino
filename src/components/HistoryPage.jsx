@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   CalendarDays,
@@ -9,6 +9,9 @@ import {
   Trash2,
   Trophy,
 } from "lucide-react";
+import { useAsyncAction } from "../hooks/useAsyncAction";
+import { useDialog } from "../hooks/useDialog";
+import { PageLoading } from "./ui/PageBoundary";
 import { toast } from "sonner";
 import { useWorkoutContext } from "../contexts/WorkoutContext";
 import {
@@ -36,14 +39,19 @@ const getCategories = (workout) => {
 
 export default function HistoryPage({
   initialGroup = "push",
+  onGroupChange,
   backLabel = "Inicio",
   onBack,
   onOpenWorkout,
   onRepeatWorkout,
 }) {
-  const { workouts, deleteWorkout } = useWorkoutContext();
+  const { workouts, deleteWorkout, loading } = useWorkoutContext();
   const [activeGroup, setActiveGroup] = useState(initialGroup);
   const [pendingDelete, setPendingDelete] = useState(null);
+  const { pending: deleting, run } = useAsyncAction();
+  const deleteTriggerRef = useRef(null);
+  const closeDelete = () => { if (!deleting) setPendingDelete(null); };
+  const dialogRef = useDialog(Boolean(pendingDelete), closeDelete, deleteTriggerRef);
 
   const grouped = useMemo(() => groupWorkouts(workouts), [workouts]);
   const groupMeta = getHistoryGroupMeta(activeGroup);
@@ -64,7 +72,7 @@ export default function HistoryPage({
     [groupSessions]
   );
 
-  const confirmDelete = async () => {
+  const confirmDelete = () => run(async () => {
     if (!pendingDelete) return;
 
     const result = await deleteWorkout(pendingDelete.timestamp);
@@ -78,7 +86,9 @@ export default function HistoryPage({
     }
 
     toast.success("Sesión eliminada en todos tus dispositivos");
-  };
+  });
+
+  if (loading && !workouts.length) return <PageLoading label="Cargando historial…" />;
 
   return (
     <div className="page-shell history-page">
@@ -108,7 +118,7 @@ export default function HistoryPage({
               role="tab"
               aria-selected={active}
               className={`history-group-tab history-group-tab--${group.id} ${active ? "is-active" : ""}`}
-              onClick={() => setActiveGroup(group.id)}
+              onClick={() => { setActiveGroup(group.id); onGroupChange?.(group.id); }}
             >
               <span className="history-group-tab__label">{group.label}</span>
               <span className="history-group-tab__subtitle">{group.subtitle}</span>
@@ -239,7 +249,7 @@ export default function HistoryPage({
                       <button
                         type="button"
                         className="history-session-card__delete"
-                        onClick={() => setPendingDelete(workout)}
+                        onClick={(event) => { deleteTriggerRef.current = event.currentTarget; setPendingDelete(workout); }}
                       >
                         Eliminar
                       </button>
@@ -259,12 +269,13 @@ export default function HistoryPage({
       </div>
 
       {pendingDelete && (
-        <div className="dialog-backdrop" role="presentation" onMouseDown={() => setPendingDelete(null)}>
+        <div ref={dialogRef} className="dialog-backdrop" role="presentation" onMouseDown={closeDelete}>
           <div
             className="confirmation-dialog"
             role="dialog"
             aria-modal="true"
             aria-labelledby="history-delete-title"
+            tabIndex={-1}
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="confirmation-dialog__icon confirmation-dialog__icon--danger">
@@ -276,11 +287,11 @@ export default function HistoryPage({
               Esta acción no se puede deshacer.
             </p>
             <div className="confirmation-dialog__actions">
-              <button type="button" className="dialog-button" onClick={() => setPendingDelete(null)}>
+              <button type="button" className="dialog-button" onClick={closeDelete} disabled={deleting}>
                 Cancelar
               </button>
-              <button type="button" className="dialog-button dialog-button--danger" onClick={confirmDelete}>
-                Eliminar
+              <button type="button" className="dialog-button dialog-button--danger" onClick={confirmDelete} disabled={deleting} aria-busy={deleting}>
+                {deleting ? "Eliminando…" : "Eliminar"}
               </button>
             </div>
           </div>

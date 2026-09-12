@@ -13,7 +13,7 @@ export default function WorkoutDetail({ workout, onBack, onRepeat, onEdit }) {
   return (
     <div className="screen flow-screen workout-detail-screen">
       <div className="topbar">
-        <button type="button" className="back-btn" onClick={onBack}>
+        <button type="button" className="back-btn" onClick={onBack} aria-label="Volver">
           <ChevronLeft size={20} />
         </button>
         <div className="topbar-title">

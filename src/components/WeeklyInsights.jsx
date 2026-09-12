@@ -12,6 +12,8 @@ import { useWorkoutContext } from "../contexts/WorkoutContext";
 import { useBodyNutrition } from "../hooks/useBodyNutrition";
 import { useProfile } from "../hooks/useProfile";
 import { buildWeeklyInsights } from "../utils/weeklyInsights";
+import { PageLoading } from "./ui/PageBoundary";
+import SyncStatus from "./ui/SyncStatus";
 
 const formatVolume = (value) => Number(value || 0).toLocaleString("es-CL");
 const formatSigned = (value, suffix = "") => {
@@ -20,17 +22,18 @@ const formatSigned = (value, suffix = "") => {
 };
 
 function Trend({ value, suffix = "%", positiveLabel, negativeLabel, neutralLabel = "Igual que la semana pasada" }) {
-  if (value == null) return <span className="week-metric__trend is-muted"><Minus size={13} /> Sin semana anterior</span>;
+  if (value == null) return <span className="week-metric__trend is-muted"><Minus size={13} /> Sin datos para comparar</span>;
   if (value > 0) return <span className="week-metric__trend is-up"><TrendingUp size={13} /> {positiveLabel || formatSigned(value, suffix)}</span>;
   if (value < 0) return <span className="week-metric__trend is-down"><TrendingDown size={13} /> {negativeLabel || formatSigned(value, suffix)}</span>;
   return <span className="week-metric__trend is-muted"><Minus size={13} /> {neutralLabel}</span>;
 }
 
 export default function WeeklyInsights() {
-  const { workouts } = useWorkoutContext();
-  const { bodyEntries, nutritionEntries, loading } = useBodyNutrition();
+  const { workouts, loading: workoutsLoading, syncError: workoutError, pendingCount: workoutPending } = useWorkoutContext();
+  const { bodyEntries, nutritionEntries, loading, syncError, pendingCount } = useBodyNutrition();
   const { profile } = useProfile();
   const week = buildWeeklyInsights({ workouts, bodyEntries, nutritionEntries, profile });
+  if ((workoutsLoading || loading) && !workouts.length && !bodyEntries.length && !nutritionEntries.length) return <PageLoading label="Cargando tu semana…" />;
 
   const nutritionSubtitle = week.nutritionLoggedDays
     ? `${week.avgProtein ?? 0} g proteína promedio`
@@ -108,14 +111,14 @@ export default function WeeklyInsights() {
             <span className="card-kicker">Consistencia</span>
             <h3>Día a día</h3>
           </div>
-          {week.nutritionLoggedDays > 0 && (
+          {week.hasNutritionTargets && week.nutritionLoggedDays > 0 && (
             <span>{week.nutritionGoalDays}/{week.nutritionLoggedDays} días en objetivo</span>
           )}
         </header>
 
         <div className="week-days" role="list" aria-label="Estado de los días de esta semana">
           {week.days.map((day) => (
-            <div key={day.key} className={`week-day ${day.isFuture ? "is-future" : ""}`} role="listitem">
+            <div key={day.key} className={`week-day ${day.isFuture ? "is-future" : ""}`} role="listitem" aria-label={`${day.label}: ${day.isFuture ? "día pendiente" : `${day.trained ? "entrenamiento registrado" : "sin entrenamiento"}; ${day.nutritionLogged ? "nutrición registrada" : "sin nutrición"}`}`}>
               <strong>{day.label}</strong>
               <div className="week-day__signals">
                 <span className={day.trained ? "is-done" : ""} title="Entrenamiento"><Dumbbell size={13} />{day.trained && <Check size={10} />}</span>
@@ -132,6 +135,7 @@ export default function WeeklyInsights() {
       </section>
 
       {loading && <div className="week-sync-note"><CalendarDays size={14} /> Actualizando datos de la semana…</div>}
+      {(syncError || workoutError || pendingCount || workoutPending) ? <SyncStatus error={syncError || workoutError} pending={pendingCount + workoutPending} /> : null}
     </div>
   );
 }

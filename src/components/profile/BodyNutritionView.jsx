@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   Calculator,
@@ -22,6 +22,8 @@ import {
   getWeightAnalytics,
 } from "../../utils/nutritionBodyAnalytics";
 import MealLogger from "./MealLogger";
+import SyncStatus from "../ui/SyncStatus";
+import { PageLoading } from "../ui/PageBoundary";
 
 const BODY_FIELDS = [
   ["weight_kg", "Peso", "kg", 20, 400],
@@ -76,14 +78,17 @@ function MacroProgress({ label, value, target, unit = "g" }) {
 
 export default function BodyNutritionView({ initialMode = "body" }) {
   const { profile, saveProfile, saving: profileSaving } = useProfile();
-  const { bodyEntries, nutritionEntries, loading, saving, syncError, saveBodyEntry, saveNutritionEntry } = useBodyNutrition();
+  const { bodyEntries, nutritionEntries, loading, saving, syncError, pendingCount, saveBodyEntry, saveNutritionEntry } = useBodyNutrition();
   const [mode, setMode] = useState(initialMode);
   const [bodyForm, setBodyForm] = useState(emptyBody);
+  const bodyDirty = useRef(false);
   const [targets, setTargets] = useState({ birth_date: "", energy_formula_sex: "", calorie_target: "", protein_target_g: "", carbs_target_g: "", fat_target_g: "" });
 
   useEffect(() => setMode(initialMode), [initialMode]);
 
   useEffect(() => {
+    // Reconnecting must not replace measurements the user is still typing.
+    if (bodyDirty.current) return;
     const today = bodyEntries.find((item) => item.entry_date === getLocalDateKey());
     setBodyForm(today ? { ...emptyBody(), ...today } : emptyBody());
   }, [bodyEntries]);
@@ -110,6 +115,7 @@ export default function BodyNutritionView({ initialMode = "body" }) {
     const hasData = BODY_FIELDS.some(([key]) => bodyForm[key] !== "" && bodyForm[key] != null);
     if (!hasData) return toast.error("Agrega al menos un dato corporal");
     const result = await saveBodyEntry(bodyForm);
+    bodyDirty.current = false;
     if (bodyForm.weight_kg !== "" && bodyForm.weight_kg != null) await saveProfile({ weight_kg: Number(bodyForm.weight_kg) });
     result.error ? toast.warning("Guardado localmente; se sincronizará después") : toast.success("Registro corporal guardado");
   };
@@ -134,12 +140,15 @@ export default function BodyNutritionView({ initialMode = "body" }) {
     await persistTargets(next);
   };
 
+  if (loading && !bodyEntries.length && !nutritionEntries.length) return <PageLoading label={mode === "body" ? "Cargando tus registros…" : "Cargando tus comidas…"} />;
+
   return (
     <div className="body-nutrition-view">
       <section className="body-nutrition-hero">
-        <div><span className="card-kicker">Treino 1.5</span><h2>Nutrition & Body</h2><p>Registra cuerpo y comidas con menos pasos, favoritos y accesos rápidos.</p></div>
-        <div className="body-nutrition-sync" role="status"><span className={syncError ? "is-offline" : "is-online"} />{loading ? "Sincronizando…" : syncError ? "Modo offline" : "Sincronizado"}</div>
+        <div><span className="card-kicker">Tu bienestar</span><h2>Cuerpo y nutrición</h2><p>Registra cuerpo y comidas con menos pasos, favoritos y accesos rápidos.</p></div>
       </section>
+
+      {(loading || saving || syncError || pendingCount) ? <div className="body-sync-note"><SyncStatus busy={loading || saving} error={syncError} pending={pendingCount} /></div> : null}
 
       <div className="body-nutrition-tabs" role="tablist">
         <button type="button" className={mode === "body" ? "is-active" : ""} onClick={() => setMode("body")}><Scale size={17} /> Cuerpo</button>
@@ -166,10 +175,10 @@ export default function BodyNutritionView({ initialMode = "body" }) {
           <form className="body-entry-card" onSubmit={handleBodySave}>
             <header><div><span className="card-kicker">Registro corporal</span><h3>Actualiza tus medidas</h3></div><Ruler size={20} /></header>
             <div className="body-entry-grid">
-              <label><span>Fecha</span><input type="date" value={bodyForm.entry_date} onChange={(event) => setBodyForm((current) => ({ ...current, entry_date: event.target.value }))} /></label>
-              {BODY_FIELDS.map(([key, label, unit, min, max]) => <label key={key}><span>{label} ({unit})</span><input type="number" inputMode="decimal" step="0.1" min={min} max={max} value={bodyForm[key] ?? ""} onChange={(event) => setBodyForm((current) => ({ ...current, [key]: event.target.value }))} /></label>)}
+              <label><span>Fecha</span><input type="date" value={bodyForm.entry_date} onChange={(event) => { bodyDirty.current = true; setBodyForm((current) => ({ ...current, entry_date: event.target.value })); }} /></label>
+              {BODY_FIELDS.map(([key, label, unit, min, max]) => <label key={key}><span>{label} ({unit})</span><input type="number" inputMode="decimal" step="0.1" min={min} max={max} value={bodyForm[key] ?? ""} onChange={(event) => { bodyDirty.current = true; setBodyForm((current) => ({ ...current, [key]: event.target.value })); }} /></label>)}
             </div>
-            <button type="submit" className="primary-action-button" disabled={saving}><Save size={16} /> {saving ? "Guardando…" : "Guardar registro"}</button>
+            <button type="submit" className="primary-action-button" disabled={saving} aria-busy={saving}><Save size={16} /> {saving ? "Guardando…" : "Guardar registro"}</button>
           </form>
 
           {bodyEntries.length > 0 && <section className="body-history-card"><header><div><span className="card-kicker">Historial</span><h3>Últimos registros</h3></div><Activity size={20} /></header><div className="body-history-list">{bodyEntries.slice(0, 8).map((entry) => <div key={entry.entry_date}><strong>{entry.entry_date}</strong><span>{entry.weight_kg ? `${Number(entry.weight_kg).toLocaleString("es-CL")} kg` : "Sin peso"}</span><small>{BODY_FIELDS.slice(1).map(([key, label]) => entry[key] ? `${label} ${entry[key]}` : null).filter(Boolean).join(" · ") || "Sin medidas adicionales"}</small></div>)}</div></section>}
@@ -188,7 +197,7 @@ export default function BodyNutritionView({ initialMode = "body" }) {
             <header><div><span className="card-kicker">Configuración</span><h3>Calorías y macros objetivo</h3></div><Target size={20} /></header>
             <div className="nutrition-estimate-profile"><label><span>Fecha de nacimiento</span><input type="date" value={targets.birth_date} onChange={(event) => setTargets((current) => ({ ...current, birth_date: event.target.value }))} /></label><div className="nutrition-sex-field"><span>Sexo para cálculo energético</span><div><button type="button" className={targets.energy_formula_sex === "male" ? "is-selected" : ""} onClick={() => setTargets((current) => ({ ...current, energy_formula_sex: "male" }))}>Masculino</button><button type="button" className={targets.energy_formula_sex === "female" ? "is-selected" : ""} onClick={() => setTargets((current) => ({ ...current, energy_formula_sex: "female" }))}>Femenino</button></div></div></div>
             <div className="nutrition-target-grid">{[["calorie_target", "Calorías"], ["protein_target_g", "Proteína (g)"], ["carbs_target_g", "Carbos (g)"], ["fat_target_g", "Grasas (g)"]].map(([key, label]) => <label key={key}><span>{label}</span><input type="number" min="0" step="1" value={targets[key]} onChange={(event) => setTargets((current) => ({ ...current, [key]: event.target.value }))} /></label>)}</div>
-            <div className="nutrition-target-actions"><button type="button" className="secondary-action-button" onClick={applyEstimate}><Calculator size={16} /> Estimar punto de partida</button><button type="button" className="primary-action-button" onClick={() => persistTargets()} disabled={profileSaving}><Save size={16} /> Guardar objetivos</button></div>
+            <div className="nutrition-target-actions"><button type="button" className="secondary-action-button" onClick={applyEstimate} disabled={profileSaving}><Calculator size={16} /> Estimar punto de partida</button><button type="button" className="primary-action-button" onClick={() => persistTargets()} disabled={profileSaving} aria-busy={profileSaving}><Save size={16} /> {profileSaving ? "Guardando…" : "Guardar objetivos"}</button></div>
             {estimate && <div className="nutrition-estimate-note"><Sparkles size={16} /><span>Mantenimiento estimado ~{estimate.maintenance.toLocaleString("es-CL")} kcal; propuesta inicial {estimate.calories.toLocaleString("es-CL")} kcal según tu objetivo actual.</span></div>}
             <p className="nutrition-safety-note">La estimación es orientativa, solo se habilita para adultos y siempre puedes editarla. No sustituye indicaciones de un profesional de salud o nutrición.</p>
           </section>

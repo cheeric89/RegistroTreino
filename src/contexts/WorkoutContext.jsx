@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useAuth } from "./AuthContext";
 import { useWorkouts } from "../hooks/useWorkouts";
-import { WORKOUT_SAVED_EVENT } from "../utils/storage";
+import { getAllWorkouts, getWorkoutSyncQueue, WORKOUT_SAVED_EVENT } from "../utils/storage";
 
 const WorkoutContext = createContext(null);
 
@@ -27,6 +27,7 @@ export function WorkoutProvider({ children }) {
   const [workouts, setWorkouts] = useState([]);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState(null);
+  const [loadedUserId, setLoadedUserId] = useState(null);
 
   useEffect(() => {
     setSyncError(dataError || null);
@@ -46,12 +47,14 @@ export function WorkoutProvider({ children }) {
       return next;
     } finally {
       setSyncing(false);
+      setLoadedUserId(user.id);
     }
   }, [fetchWorkouts, user]);
 
   useEffect(() => {
+    setWorkouts(user?.id ? getAllWorkouts(user.id) : []);
     refreshWorkouts();
-  }, [refreshWorkouts]);
+  }, [refreshWorkouts, user?.id]);
 
   useEffect(() => {
     const handleFocus = () => refreshWorkouts();
@@ -60,10 +63,12 @@ export function WorkoutProvider({ children }) {
     };
 
     window.addEventListener("focus", handleFocus);
+    window.addEventListener("online", handleFocus);
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
       window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("online", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [refreshWorkouts]);
@@ -106,10 +111,12 @@ export function WorkoutProvider({ children }) {
     workouts,
     syncing,
     syncError,
+    loading: Boolean(user && loadedUserId !== user.id),
+    pendingCount: getWorkoutSyncQueue(user?.id).length,
     refreshWorkouts,
     saveWorkout,
     deleteWorkout,
-  }), [deleteWorkout, refreshWorkouts, saveWorkout, syncError, syncing, workouts]);
+  }), [deleteWorkout, refreshWorkouts, saveWorkout, syncError, syncing, workouts, loadedUserId, user]);
 
   return <WorkoutContext.Provider value={value}>{children}</WorkoutContext.Provider>;
 }

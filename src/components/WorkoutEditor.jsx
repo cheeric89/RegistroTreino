@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { ChevronLeft, Plus, Save, Trash2 } from "lucide-react";
+import { useAsyncAction } from "../hooks/useAsyncAction";
 import { toast } from "sonner";
 import { useWorkoutContext } from "../contexts/WorkoutContext";
 
@@ -44,7 +45,7 @@ const calculateVolume = (categories) =>
 export default function WorkoutEditor({ workout, onBack, onSaved }) {
   const { saveWorkout } = useWorkoutContext();
   const [draft, setDraft] = useState(() => cloneWorkout(workout));
-  const [saving, setSaving] = useState(false);
+  const { pending: saving, run } = useAsyncAction();
 
   const volume = useMemo(() => calculateVolume(draft.exercises || []), [draft.exercises]);
 
@@ -120,7 +121,7 @@ export default function WorkoutEditor({ workout, onBack, onSaved }) {
     }));
   };
 
-  const handleSave = async () => {
+  const handleSave = () => run(async () => {
     const cleanedExercises = (draft.exercises || [])
       .map((category) => ({
         ...category,
@@ -152,9 +153,7 @@ export default function WorkoutEditor({ workout, onBack, onSaved }) {
       volume: calculateVolume(cleanedExercises),
     };
 
-    setSaving(true);
     const result = await saveWorkout(updated);
-    setSaving(false);
 
     if (result.error) {
       toast.warning("Cambios guardados en este dispositivo", {
@@ -164,17 +163,17 @@ export default function WorkoutEditor({ workout, onBack, onSaved }) {
       toast.success("Sesión corregida y sincronizada");
     }
     onSaved?.(updated);
-  };
+  });
 
   return (
     <div className="screen flow-screen workout-editor-screen">
       <div className="topbar">
-        <button type="button" className="back-btn" onClick={onBack}><ChevronLeft size={20} /></button>
+        <button type="button" className="back-btn" onClick={onBack} disabled={saving} aria-label="Volver al detalle"><ChevronLeft size={20} /></button>
         <div className="topbar-title">
           <span className="step-label">Editar sesión</span>
           <h2>Corrige tu entrenamiento</h2>
         </div>
-        <button type="button" className="wf-save-btn" onClick={handleSave} disabled={saving} aria-label="Guardar cambios">
+        <button type="button" className="wf-save-btn" onClick={handleSave} disabled={saving} aria-label={saving ? "Guardando cambios" : "Guardar cambios"} aria-busy={saving}>
           <Save size={20} />
         </button>
       </div>
